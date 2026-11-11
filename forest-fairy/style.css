@@ -1,0 +1,28 @@
+:root { color-scheme: dark; font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #10251b; }
+#forest { position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; touch-action: none; }
+.landscape { position: absolute; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.atmosphere { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, #06160e70, transparent 32%, transparent 65%, #04130c9c), radial-gradient(ellipse at center, transparent 35%, #04140e61 100%); }
+#lights { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.title { position: absolute; left: clamp(24px, 5vw, 88px); top: clamp(28px, 6vh, 70px); pointer-events: none; color: #f5f2dc; text-shadow: 0 2px 24px #03150a; }
+.eyebrow { margin: 0 0 18px; font-size: 9px; letter-spacing: .33em; color: #d7e5c0; }
+h1 { margin: 0; font-family: "Batang", "Noto Serif KR", serif; font-weight: 400; font-size: clamp(32px, 4vw, 59px); letter-spacing: .13em; }
+.subtitle { margin-top: 16px; font-size: 12px; letter-spacing: .19em; color: #e0e7cf; }
+#fairy { position: absolute; left: 0; top: 0; width: 92px; height: 108px; margin: -54px 0 0 -46px; opacity: 0; pointer-events: none; will-change: transform; transition: opacity .55s ease; }
+#forest.awake #fairy { opacity: 1; }
+.aura { position: absolute; inset: -50px; border-radius: 50%; background: radial-gradient(ellipse, #fff7ab3d 0%, #e8fda91a 28%, transparent 65%); mix-blend-mode: screen; }
+.figure { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 4px #fff8ae) drop-shadow(0 0 12px #eaffad8c); animation: hover 2.8s ease-in-out infinite; }
+.wings { transform-origin: 60px 65px; animation: flutter .18s ease-in-out infinite alternate; }
+.right-wing { animation-delay: -.09s; }
+.invitation { position: absolute; left: 20px; right: 20px; bottom: 7vh; display: flex; align-items: center; flex-direction: column; gap: 12px; text-align: center; pointer-events: none; color: #f8f2d8; transition: opacity 1.1s; text-shadow: 0 2px 12px #000; }
+.invitation p { margin: 0; font-size: 14px; letter-spacing: .14em; line-height: 2; }
+.invitation p span { display: block; font-size: 11px; letter-spacing: .07em; opacity: .78; }
+.spark { font-size: 27px; color: #f9edb4; }
+.awake .invitation { opacity: .34; }
+.signature { position: absolute; right: 34px; bottom: 22px; margin: 0; font-family: "Batang", serif; font-size: 10px; letter-spacing: .16em; color: #e0e8cf80; pointer-events: none; }
+.image-error { position: absolute; bottom: 25px; left: 25px; right: 25px; padding: 16px; background: #10251b; color: #fff; font-size: 14px; }
+@keyframes flutter { from { transform: scaleX(.45); } to { transform: scaleX(1); } }
+@keyframes hover { 0%, 100% { translate: 0 -3px; } 50% { translate: 0 3px; } }
+@media (max-width: 600px) { .eyebrow { font-size: 7px; letter-spacing: .23em; } .signature { right: 20px; font-size: 9px; } .invitation { bottom: 10vh; } #fairy { width: 76px; height: 89px; margin: -45px 0 0 -38px; } }
+@media (prefers-reduced-motion: reduce) { .figure, .wings { animation: none; } }

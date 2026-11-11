@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10251b">
+  <title>숲 속의 나 · 요정이 비추는 길</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="forest.js" defer></script>
+</head>
+<body>
+  <main id="forest" aria-label="마우스를 움직이면 빛나는 요정이 따라오는 울창한 숲">
+    <img class="landscape" src="assets/amazon-forest.png" alt="커다란 나무와 울창한 잎 사이로 햇빛이 스며들고, 작은 길이 숲 안쪽으로 이어지는 풍경">
+    <div class="atmosphere" aria-hidden="true"></div>
+    <canvas id="lights" aria-hidden="true"></canvas>
+    <header class="title">
+      <p class="eyebrow">A LITTLE LIGHT IN THE FOREST</p>
+      <h1>숲 속의 나</h1>
+      <p class="subtitle">작은 요정이 비추는 길</p>
+    </header>
+    <div id="fairy" aria-hidden="true">
+      <div class="aura"></div>
+      <svg class="figure" viewBox="0 0 120 140" fill="none">
+        <defs>
+          <linearGradient id="wing" x1="60" y1="72" x2="15" y2="20" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#fff5b8" stop-opacity=".9"/><stop offset="1" stop-color="#c5ffe6" stop-opacity=".12"/>
+          </linearGradient>
+          <linearGradient id="dress" x1="60" y1="56" x2="60" y2="110" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#ffffea"/><stop offset="1" stop-color="#d5f8b3" stop-opacity=".5"/>
+          </linearGradient>
+        </defs>
+        <g class="wings left-wing">
+          <path d="M57 67C39 61 8 29 19 15C31 4 57 30 57 67Z" fill="url(#wing)" stroke="#e5ffcc" stroke-opacity=".7"/>
+          <path d="M57 68C34 61 13 71 21 89C30 103 48 88 57 68Z" fill="url(#wing)" stroke="#e5ffcc" stroke-opacity=".6"/>
+          <path d="M22 20Q36 39 55 64M25 84L53 69" stroke="#fffbd3" stroke-opacity=".45"/>
+        </g>
+        <g class="wings right-wing">
+          <path d="M63 67C81 61 112 29 101 15C89 4 63 30 63 67Z" fill="url(#wing)" stroke="#e5ffcc" stroke-opacity=".7"/>
+          <path d="M63 68C86 61 107 71 99 89C90 103 72 88 63 68Z" fill="url(#wing)" stroke="#e5ffcc" stroke-opacity=".6"/>
+          <path d="M98 20Q84 39 65 64M95 84L67 69" stroke="#fffbd3" stroke-opacity=".45"/>
+        </g>
+        <path d="M57 92Q54 108 51 119M63 93Q64 111 71 118" stroke="#fff5ca" stroke-width="3" stroke-linecap="round"/>
+        <path d="M55 57Q48 73 39 81M65 58Q73 65 83 58" stroke="#fff6cb" stroke-width="3" stroke-linecap="round"/>
+        <path d="M56 53Q60 50 64 53L67 71Q69 85 78 97Q61 108 43 98Q54 81 53 70Z" fill="url(#dress)"/>
+        <path d="M59 48L59 56" stroke="#fff7d6" stroke-width="5"/>
+        <ellipse cx="60" cy="41" rx="7" ry="9" fill="#fff8d9"/>
+        <path d="M52 42Q47 26 60 29Q73 27 68 44Q65 32 58 34Z" fill="#e9d99a"/>
+        <path d="M82 60L95 43" stroke="#fff3b7" stroke-width="1.5"/>
+        <path d="M96 35L98 41L104 43L98 45L96 51L94 45L88 43L94 41Z" fill="#fffde1"/>
+      </svg>
+    </div>
+    <footer class="invitation" id="invitation">
+      <span class="spark" aria-hidden="true">✧</span>
+      <p>마우스를 움직여 보세요<span>요정이 당신의 길을 밝혀줄 거예요.</span></p>
+    </footer>
+    <p class="signature" aria-hidden="true">빛이 머문 자리, 길이 되다</p>
+    <p class="image-error" hidden>숲 이미지를 불러오지 못했어요. assets 폴더가 함께 있는지 확인해 주세요.</p>
+  </main>
+</body>
+</html>

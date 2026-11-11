@@ -1,0 +1,5 @@
+생성 방식: 내장 image_gen 도구
+배경 이미지: amazon-forest.png
+최종 제작 문장:
+Use case: stylized-concept. Asset type: full-screen background for a quiet interactive forest artwork, widescreen 16:9 landscape. Primary request: a lush, dense Amazon-inspired tropical rainforest with a narrow winding footpath disappearing into luminous mist at the center. Immersive ground-level perspective, enormous old trees with buttress roots, layered ferns, broad tropical leaves and trailing vines framing the sides, wet moss, deep rich forest greens with soft warm shafts of sunlight through the canopy. Cinematic painterly realism, beautiful natural detail, tranquil and slightly enchanted but believable. Keep the central path visible and enough darker areas for moving golden light to read clearly. Edge-to-edge environment, no people, no fairy, no animals, no text, no logos, no UI, no watermark. Render at 1536x1024 or wider landscape.
+
