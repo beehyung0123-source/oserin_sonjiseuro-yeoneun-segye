@@ -534,7 +534,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   --rail-width: 9px;
   --rail-finish:
     linear-gradient(to right, #0003, transparent 30%, #fff3 58%, #0003),
-    linear-gradient(to top, #b9c8cf var(--volume-percent, 100%), #242b2f 0);
+    linear-gradient(to top, #242b2f var(--volume-percent, 100%), #b9c8cf 0);
   grid-column: 2;
   grid-row: 1 / -1;
   justify-self: center;
