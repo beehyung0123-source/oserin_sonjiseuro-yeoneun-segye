@@ -297,6 +297,15 @@ input:focus-visible {
 
 .volume:disabled { opacity: 0.42; cursor: default; }
 
+.is-hand-grabbed .volume { opacity: 1; }
+
+.is-hand-grabbed .volume::-webkit-slider-runnable-track {
+  border-radius: 1rem;
+  background: linear-gradient(to top, var(--accent) var(--volume-percent), #414247 var(--volume-percent));
+}
+
+.is-hand-grabbed .amount { color: var(--accent); }
+
 .amount {
   color: #bdbfc4;
   font-variant-numeric: tabular-nums;

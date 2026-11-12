@@ -8,6 +8,7 @@ const pinchConfirmationFrames = 3;
 const smoothingMs = 75;
 const selectionDwellMs = 250;
 const trackingGraceMs = 300;
+const volumeTravel = 0.4; // Fraction of the screen height for a 0–100% adjustment.
 const cursor = document.querySelector('.hand-cursor');
 const mixer = document.querySelector('#mixer');
 // Keep the video off the DOM so the TV only shows the cursor.
@@ -19,20 +20,37 @@ const clamp = value => Math.min(1, Math.max(0, value));
 let session;
 let selectedCard;
 let grabbedCard;
+let volumeDrag;
 
-function grabCard(card) {
+function grabCard(card, startY) {
   if (grabbedCard === card) return;
   if (grabbedCard) {
     grabbedCard.classList.remove('is-hand-grabbed');
     grabbedCard.querySelector('.grab-status').hidden = true;
   }
   grabbedCard = card;
+  volumeDrag = undefined;
   cursor.classList.toggle('is-grabbing', Boolean(card));
   if (card) {
     selectCard(card);
     card.classList.add('is-hand-grabbed');
     card.querySelector('.grab-status').hidden = false;
+    const slider = card.querySelector('.volume');
+    const startVolume = slider.valueAsNumber;
+    volumeDrag = { stemId: card.dataset.track, slider, startY, startVolume, lastVolume: startVolume };
   }
+}
+
+function adjustGrabbedVolume(currentY) {
+  const { stemId, slider, startY, startVolume, lastVolume } = volumeDrag;
+  if (slider.valueAsNumber !== lastVolume) {
+    // Continue from a change made with the mouse or the original mix button.
+    volumeDrag.startY = currentY;
+    volumeDrag.startVolume = slider.valueAsNumber;
+  } else {
+    setStemVolume(stemId, startVolume + (startY - currentY) * 100 / volumeTravel);
+  }
+  volumeDrag.lastVolume = slider.valueAsNumber;
 }
 
 function getPinchRatio(hand) {
@@ -164,12 +182,14 @@ async function startTracking() {
               candidate = null;
               if (pinchState === 'open') {
                 pinchState = 'closed';
-                grabCard(card);
+                grabCard(card, position.y);
               } else {
                 pinchState = 'open';
                 grabCard(null);
               }
             }
+
+            if (volumeDrag && !pinchChanged) adjustGrabbedVolume(position.y);
 
             if (!grabbedCard) {
               if (card !== candidate) {

@@ -50,10 +50,18 @@ for (const track of tracks) {
     updateTrack(track);
   });
   track.slider.addEventListener('input', () => {
-    track.volume = track.slider.valueAsNumber;
-    updateTrack(track);
+    setStemVolume(track.id, track.slider.valueAsNumber);
   });
   trackList.append(card);
+}
+
+function setStemVolume(id, volume) {
+  if (phase !== 'mixing' || !Number.isFinite(volume)) return;
+  const track = tracks.find(track => track.id === id);
+  const nextVolume = Math.round(Math.min(100, Math.max(0, volume)));
+  if (!track || track.volume === nextVolume) return;
+  track.volume = nextVolume;
+  updateTrack(track);
 }
 
 function updateTrack(track, when = context.currentTime) {
@@ -68,6 +76,7 @@ function updateTrack(track, when = context.currentTime) {
   track.state.textContent = track.enabled ? 'ON' : 'OFF';
   track.slider.disabled = phase !== 'mixing' || !track.enabled;
   track.slider.value = track.volume;
+  track.card.style.setProperty('--volume-percent', `${track.volume}%`);
   track.amount.textContent = `${track.volume}%`;
 }
 
