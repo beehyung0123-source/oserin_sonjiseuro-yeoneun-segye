@@ -16,7 +16,7 @@
   const detail = guide.querySelector('.guide-detail');
   const messages = {
     raise: ['RAISE YOUR HAND TO BEGIN', '카메라 앞에서 손을 들어 보세요.'],
-    start: ['PINCH TO START', 'START에 커서를 올리고 엄지와 검지를 붙이세요.'],
+    start: ['PINCH TO START', '시작하기에 커서를 올리고 엄지와 검지를 붙이세요.'],
     power: ['PINCH TO POWER ON', 'POWER에 커서를 올리고 엄지와 검지를 붙이세요.'],
     needle: ['GRAB THE NEEDLE AND PLACE IT ON THE RECORD', '카트리지를 집고 LP의 검은 홈 위로 옮겨 손을 펴세요.'],
     carry: ['NEEDLE GRABBED', '집은 채 LP 홈으로 옮기세요.'],
@@ -74,7 +74,8 @@
       if (waiting.hidden) return show(null, null, now);
       const ready = canStartExperience();
       waiting.toggleAttribute('data-visitor-ready', ready);
-      return show(hands ? (ready ? 'start' : null) : 'raise', 'waiting', now);
+      if (!ready) return show(null, null, now);
+      return show(hands ? 'start' : 'raise', 'waiting', now);
     }
 
     session ??= { handsSeen: false, powered: false, played: false, mixed: false,

@@ -91,7 +91,7 @@
       const position = getMixPosition();
       mixer.classList.toggle('is-playing', playing);
       let label = 'STOPPED';
-      if (locked) label = 'Space / Enter로 오디오 켜기';
+      if (locked) label = '오디오 켜기 버튼을 눌러 주세요';
       else if (playing) label = 'NOW PLAYING';
       else if (needleDown) label = 'CUEING';
       else if (deck.dataset.state === 'needle-up') label = position > 0 ? 'PAUSED' : 'PLATTER SPINNING';

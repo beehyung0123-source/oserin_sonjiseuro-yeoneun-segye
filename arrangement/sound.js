@@ -51,8 +51,8 @@ let defaultMixOnCue = false;
 let originalNoticeTimer;
 const transportFadeSeconds = 0.09;
 const resultSeconds = 5;
-const unlockMessage = '운영자는 Space 또는 Enter를 눌러 오디오를 켜 주세요.';
-const readyMessage = 'START나 원곡 듣기에 검지 커서를 올리고 엄지와 검지를 붙이세요.';
+const startMessage = '시작하기 버튼을 눌러 체험을 시작하세요.';
+const readyMessage = '시작하기나 원곡 듣기에 검지 커서를 올리고 엄지와 검지를 붙이세요.';
 
 for (const [index, track] of tracks.entries()) {
   const card = template.content.firstElementChild.cloneNode(true);
@@ -243,11 +243,11 @@ async function activateAudio() {
       context.addEventListener('statechange', () => {
         startMix();
         if (audioReady && phase === 'waiting') {
-          waitingStatus.textContent = canStartExperience() ? readyMessage : unlockMessage;
+          waitingStatus.textContent = canStartExperience() ? readyMessage : startMessage;
         }
       });
     }
-    // Called directly from a trusted keyboard or mouse event.
+    // Resume audio from the start button’s trusted click.
     await context.resume();
     if (context.state !== 'running') throw new Error('AudioContext: ' + context.state);
     if (!audioReady) {
@@ -286,7 +286,7 @@ async function activateAudio() {
     await activating;
   } catch (error) {
     console.error(error);
-    waitingStatus.textContent = '오디오를 시작하지 못했습니다. Space 또는 Enter로 다시 시도해 주세요.';
+    waitingStatus.textContent = '오디오를 시작하지 못했습니다. 시작하기 버튼을 다시 눌러 주세요.';
   } finally {
     activating = undefined;
     enter.disabled = false;
@@ -342,7 +342,7 @@ function returnToWaiting() {
   clearInterval(sessionTimer);
   mixer.hidden = true;
   result.hidden = true;
-  waitingStatus.textContent = canStartExperience() ? readyMessage : unlockMessage;
+  waitingStatus.textContent = canStartExperience() ? readyMessage : startMessage;
   waiting.hidden = false;
 }
 
@@ -383,15 +383,10 @@ waitingOriginal.addEventListener('click', () => startFromClick(true));
 finish.addEventListener('click', finishExperience);
 
 document.addEventListener('keydown', event => {
-  if (!event.isTrusted || location.protocol === 'file:' || event.repeat
-      || !['Space', 'Enter'].includes(event.code)) return;
-  if (phase === 'waiting' && !canStartExperience()) {
-    event.preventDefault();
-    activateAudio();
-  } else if (phase === 'mixing' && context.state !== 'running') {
-    event.preventDefault();
-    resumeAudioFromInput();
-  }
+  if (phase !== 'mixing' || context.state === 'running' || !event.isTrusted
+      || event.repeat || !['Space', 'Enter'].includes(event.code)) return;
+  event.preventDefault();
+  resumeAudioFromInput();
 });
 document.addEventListener('visibilitychange', updateSession);
 window.addEventListener('pageshow', updateSession);

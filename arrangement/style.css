@@ -663,7 +663,8 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   clip-path: inset(50%);
   white-space: nowrap;
 }
-#waiting[data-visitor-ready] #waiting-status { display: none; }
+#waiting[data-visitor-ready] #waiting-status,
+#waiting:not([data-visitor-ready]) #waiting-guide-slot { display: none; }
 #waiting-guide-slot {
   display: grid;
   align-items: center;
