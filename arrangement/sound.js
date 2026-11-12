@@ -17,23 +17,46 @@ const enter = document.querySelector('#enter');
 const waitingOriginal = document.querySelector('#waiting-original');
 const finish = document.querySelector('#finish');
 const original = document.querySelector('#original');
+const mixerHint = document.querySelector('#mixer-hint');
+const defaultMixerHint = mixerHint.textContent;
+const deckScene = mixer.querySelector('.deck-scene');
 const remainingTime = document.querySelector('#remaining');
 const trackList = document.querySelector('.tracks');
 const template = document.querySelector('#track-template');
+const masterFilters = new Map([
+  { id: 'master-hpf-cutoff', type: 'highpass', minHz: 20, maxHz: 10000, defaultPosition: 0 },
+  { id: 'master-cutoff', type: 'lowpass', minHz: 150, maxHz: 18000, defaultPosition: 1 },
+].map(config => {
+  const control = document.getElementById(config.id);
+  const panel = control.closest('.filter-unit');
+  return [control, { ...config, control, panel, frequency: panel.querySelector('.filter-frequency'),
+    position: config.defaultPosition }];
+}));
 
 let context;
 let buffers;
 let phase = 'waiting';
 let audioReady = false;
-let activating;
-let endsAt;
+let loadingAudio = false;
 let sessionTimer;
+let resultUntil;
+let mixAnalyser;
+const cutoffSmoothingSeconds = 0.025;
+let activeMix = null;
+let wantsPlayback = false;
+let mixOffset = 0;
+let sessionPlayed = 0;
+let silentAt = 0;
+let defaultMixOnCue = false;
+let originalNoticeTimer;
+const transportFadeSeconds = 0.09;
 const resultSeconds = 5;
-const readyMessage = '검지 커서를 START 위에 두고 엄지와 검지를 붙여 시작하세요.';
+const startMessage = '시작하기를 누르거나 손으로 집어 주세요.';
 
-for (const track of tracks) {
+for (const [index, track] of tracks.entries()) {
   const card = template.content.firstElementChild.cloneNode(true);
   card.dataset.track = track.id;
+  card.querySelector('.channel-number').textContent = `CH.${String(index + 1).padStart(2, '0')}`;
   card.querySelector('.name').textContent = track.name.toUpperCase();
 
   track.card = card;
@@ -58,6 +81,7 @@ function toggleStem(id) {
   if (phase !== 'mixing') return;
   const track = tracks.find(track => track.id === id);
   if (!track) return;
+  defaultMixOnCue = false;
   track.enabled = !track.enabled;
   updateTrack(track);
 }
@@ -67,6 +91,7 @@ function setStemVolume(id, volume) {
   const track = tracks.find(track => track.id === id);
   const nextVolume = Math.round(Math.min(100, Math.max(0, volume)));
   if (!track || track.volume === nextVolume) return;
+  defaultMixOnCue = false;
   track.volume = nextVolume;
   updateTrack(track);
 }
@@ -87,6 +112,114 @@ function updateTrack(track, when = context.currentTime) {
   track.amount.textContent = `${track.volume}%`;
 }
 
+function cutoffHz(filter) {
+  return filter.minHz * (filter.maxHz / filter.minHz) ** filter.position;
+}
+
+function setMasterFilterPosition(filter, value, applyAt = 0) {
+  if (!Number.isFinite(value)) return;
+  const position = Math.round(Math.min(1, Math.max(0, value)) * 1000) / 1000;
+  if (position === filter.position) return;
+  filter.position = position;
+  const hz = cutoffHz(filter);
+  if (filter.node) {
+    const when = Math.max(context.currentTime, applyAt);
+    filter.node.frequency.cancelScheduledValues(when);
+    filter.node.frequency.setTargetAtTime(hz, when, cutoffSmoothingSeconds);
+  }
+  const label = hz >= 1000 ? (hz / 1000).toFixed(1) + ' kHz' : Math.round(hz) + ' Hz';
+  filter.control.value = position;
+  filter.control.setAttribute('aria-valuetext', label);
+  filter.frequency.textContent = label;
+  filter.panel.style.setProperty('--cutoff-angle', (-135 + position * 270) + 'deg');
+}
+
+function resetMasterFilters(applyAt = 0) {
+  for (const filter of masterFilters.values()) {
+    setMasterFilterPosition(filter, filter.defaultPosition, applyAt);
+  }
+  mixer.dispatchEvent(new Event('masterfiltersreset'));
+}
+
+for (const [control, filter] of masterFilters) {
+  control.addEventListener('input', () => setMasterFilterPosition(filter, control.valueAsNumber));
+}
+
+function activeMixElapsed(now = context.currentTime) {
+  return activeMix ? Math.max(0, now - activeMix.startAt) : 0;
+}
+
+function getMixPosition() {
+  return (mixOffset + activeMixElapsed()) % buffers[0].duration;
+}
+
+function isMixPlaying() {
+  return Boolean(activeMix && context.state === 'running' && context.currentTime >= activeMix.startAt);
+}
+
+function startMix() {
+  if (!wantsPlayback || activeMix || context.state !== 'running') return;
+  if (defaultMixOnCue) playOriginalMix();
+
+  const startAt = Math.max(context.currentTime + 0.02, silentAt);
+  const voices = tracks.map((track, index) => {
+    const source = context.createBufferSource();
+    const fade = context.createGain();
+    source.buffer = buffers[index];
+    source.loop = true;
+    fade.gain.value = 0;
+    source.connect(fade).connect(track.gain);
+    fade.gain.setValueAtTime(0, startAt);
+    fade.gain.linearRampToValueAtTime(1, startAt + transportFadeSeconds);
+    source.addEventListener('ended', () => {
+      source.disconnect();
+      fade.disconnect();
+    }, { once: true });
+    source.start(startAt, mixOffset);
+    return { source, fade };
+  });
+  activeMix = { startAt, voices };
+}
+
+function stopMix(resetPosition = false) {
+  if (activeMix) {
+    const now = context.currentTime;
+    const elapsed = activeMixElapsed(now);
+    sessionPlayed += elapsed;
+    mixOffset = (mixOffset + elapsed) % buffers[0].duration;
+    const shouldFade = elapsed > 0 && context.state === 'running';
+    const stopAt = shouldFade ? now + transportFadeSeconds : now;
+    for (const { source, fade } of activeMix.voices) {
+      if (shouldFade) {
+        fade.gain.cancelScheduledValues(now);
+        fade.gain.setValueAtTime(Math.min(1, elapsed / transportFadeSeconds), now);
+        fade.gain.linearRampToValueAtTime(0, stopAt);
+      }
+      source.stop(stopAt);
+    }
+    // A new cue can be queued while the previous four sources fade out.
+    silentAt = Math.max(silentAt, stopAt);
+    activeMix = null;
+  }
+  if (resetPosition) mixOffset = 0;
+}
+
+function setTurntableTransport(state) {
+  if (phase === 'mixing' && originalNoticeTimer !== undefined) updateOriginalMixNotice();
+  wantsPlayback = state === 'needle-down' && phase === 'mixing';
+  if (wantsPlayback) {
+    startMix();
+  } else {
+    const poweredOff = state === 'power-off';
+    stopMix(poweredOff);
+    if (poweredOff) resetMasterFilters(silentAt);
+  }
+}
+
+function resumeAudioFromInput() {
+  context.resume().catch(error => console.warn('오디오를 다시 켤 수 없습니다.', error));
+}
+
 async function loadBuffer(track) {
   const response = await fetch(`./음악/${track.id}.wav`);
   if (!response.ok) throw new Error(`${track.name} 음원 요청 실패 (${response.status})`);
@@ -94,74 +227,83 @@ async function loadBuffer(track) {
 }
 
 function canStartExperience() {
-  return audioReady && context.state === 'running' && phase === 'waiting';
+  return phase === 'waiting' && !loadingAudio && location.protocol !== 'file:';
 }
 
-async function activateAudio() {
-  if (activating) return;
+async function prepareAudio(fromClick) {
+  if (!context) {
+    context = new AudioContext();
+    context.addEventListener('statechange', startMix);
+  }
+  // A pinch can load the mixer while the browser is still blocking sound.
+  if (fromClick && context.state !== 'running') resumeAudioFromInput();
+  if (audioReady) return;
+
+  buffers ??= await Promise.all(tracks.map(loadBuffer));
+  if (buffers.some(buffer => buffer.length !== buffers[0].length)) {
+    throw new Error('네 음원의 길이가 같아야 함께 반복할 수 있습니다.');
+  }
+  const master = context.createGain();
+  let output = master;
+  for (const filter of masterFilters.values()) {
+    const node = context.createBiquadFilter();
+    node.type = filter.type;
+    node.Q.value = 0.707;
+    node.frequency.value = cutoffHz(filter);
+    filter.node = node;
+    output = output.connect(node);
+  }
+  mixAnalyser = context.createAnalyser();
+  mixAnalyser.fftSize = 512;
+  output.connect(mixAnalyser).connect(context.destination);
+  for (const track of tracks) {
+    track.gain = context.createGain();
+    track.gain.gain.value = 0;
+    track.analyser = context.createAnalyser();
+    track.analyser.fftSize = 512;
+    // Measure the audible stem after its gain, along its single output path.
+    track.gain.connect(track.analyser).connect(master);
+  }
+  audioReady = true;
+}
+
+async function startExperience(withOriginalMix = false, fromClick = false) {
+  if (!canStartExperience()) return;
+  loadingAudio = true;
   enter.disabled = true;
   waitingOriginal.disabled = true;
   waitingStatus.textContent = '음원을 불러오는 중입니다…';
-
-  activating = (async () => {
-    context ??= new AudioContext();
-    // Called directly from a trusted keyboard or mouse event.
-    await context.resume();
-    if (context.state !== 'running') throw new Error('AudioContext: ' + context.state);
-    if (!audioReady) {
-      buffers ??= await Promise.all(tracks.map(loadBuffer));
-      if (buffers.some(buffer => buffer.length !== buffers[0].length)) {
-        throw new Error('네 음원의 길이가 같아야 함께 반복할 수 있습니다.');
-      }
-      const master = context.createGain();
-      master.connect(context.destination);
-      const startTime = context.currentTime + 0.06;
-      tracks.forEach((track, index) => {
-        track.source = context.createBufferSource();
-        track.source.buffer = buffers[index];
-        track.source.loop = true;
-        track.gain = context.createGain();
-        track.gain.gain.value = 0;
-        track.analyser = context.createAnalyser();
-        track.analyser.fftSize = 512;
-        // Measure the audible stem after its gain, along its single output path.
-        track.source.connect(track.gain).connect(track.analyser).connect(master);
-        track.source.start(startTime);
-      });
-      audioReady = true;
-    }
-    waitingStatus.textContent = readyMessage;
-    console.info('AudioContext:', context.state);
-  })();
-
   try {
-    await activating;
+    await prepareAudio(fromClick);
   } catch (error) {
     console.error(error);
-    waitingStatus.textContent = '오디오를 시작하지 못했습니다. Space 또는 Enter로 다시 시도해 주세요.';
+    waitingStatus.textContent = '오디오를 불러오지 못했습니다. 시작하기를 다시 시도해 주세요.';
+    return;
   } finally {
-    activating = undefined;
+    loadingAudio = false;
     enter.disabled = false;
     waitingOriginal.disabled = false;
   }
-}
-
-function startExperience(withOriginalMix = false) {
-  if (!canStartExperience()) return;
   phase = 'mixing';
+  resetMasterFilters();
+  sessionPlayed = 0;
+  defaultMixOnCue = !withOriginalMix;
   for (const track of tracks) {
     track.enabled = withOriginalMix;
     updateTrack(track);
   }
-  endsAt = context.currentTime + buffers[0].duration * 2;
   waiting.hidden = true;
   mixer.hidden = false;
+  clearOriginalMixNotice();
+  if (withOriginalMix) showOriginalMixNotice();
   updateSession();
   sessionTimer = setInterval(updateSession, 100);
 }
 
 function showResult() {
   phase = 'result';
+  clearOriginalMixNotice();
+  setTurntableTransport('power-off');
   const audible = tracks.filter(track => track.enabled && track.volume > 0);
   resultTracks.replaceChildren(...audible.map(track => {
     const item = resultTemplate.content.firstElementChild.cloneNode(true);
@@ -177,7 +319,7 @@ function showResult() {
     track.volume = 100;
     updateTrack(track);
   }
-  endsAt = context.currentTime + resultSeconds;
+  resultUntil = performance.now() + resultSeconds * 1000;
   mixer.hidden = true;
   result.hidden = false;
   resultTitle.focus();
@@ -188,17 +330,20 @@ function returnToWaiting() {
   clearInterval(sessionTimer);
   mixer.hidden = true;
   result.hidden = true;
-  waitingStatus.textContent = readyMessage;
+  waitingStatus.textContent = startMessage;
   waiting.hidden = false;
 }
 
 function updateSession() {
   if (phase === 'waiting') return;
+  if (phase === 'result') {
+    if (performance.now() >= resultUntil) returnToWaiting();
+    return;
+  }
 
-  const left = endsAt - context.currentTime;
+  const left = buffers[0].duration * 2 - sessionPlayed - activeMixElapsed();
   if (left <= 0) {
-    if (phase === 'mixing') showResult();
-    else returnToWaiting();
+    showResult();
     return;
   }
 
@@ -216,32 +361,56 @@ function finishExperience() {
   if (phase === 'mixing') showResult();
 }
 
-async function startFromClick(withOriginalMix) {
-  if (!canStartExperience()) await activateAudio();
-  startExperience(withOriginalMix);
-}
-
-enter.addEventListener('click', () => startFromClick(false));
-waitingOriginal.addEventListener('click', () => startFromClick(true));
+enter.addEventListener('click', () => startExperience(false, true));
+waitingOriginal.addEventListener('click', () => startExperience(true, true));
 finish.addEventListener('click', finishExperience);
 
 document.addEventListener('keydown', event => {
-  if (!event.isTrusted || location.protocol === 'file:' || phase !== 'waiting' || canStartExperience()
+  if (phase !== 'mixing' || context.state === 'running' || !event.isTrusted
       || event.repeat || !['Space', 'Enter'].includes(event.code)) return;
   event.preventDefault();
-  activateAudio();
+  resumeAudioFromInput();
 });
 document.addEventListener('visibilitychange', updateSession);
 window.addEventListener('pageshow', updateSession);
 
-original.addEventListener('click', () => {
+function playOriginalMix() {
+  if (phase !== 'mixing') return;
+  defaultMixOnCue = false;
   const now = context.currentTime;
   for (const track of tracks) {
     track.enabled = true;
     track.volume = 100;
     updateTrack(track, now);
   }
-});
+}
+
+function updateOriginalMixNotice() {
+  const state = deckScene.dataset.state;
+  if (state === 'power-off') mixerHint.textContent = '원곡 선택됨 · POWER를 켜고 바늘 놓기';
+  else if (state === 'needle-up') mixerHint.textContent = '원곡 선택됨 · LP 홈에 바늘 놓기';
+  else mixerHint.textContent = '원곡 선택됨 · 4개 스템 ON';
+}
+
+function clearOriginalMixNotice() {
+  clearTimeout(originalNoticeTimer);
+  originalNoticeTimer = undefined;
+  mixerHint.textContent = defaultMixerHint;
+}
+
+function showOriginalMixNotice() {
+  clearTimeout(originalNoticeTimer);
+  updateOriginalMixNotice();
+  originalNoticeTimer = setTimeout(clearOriginalMixNotice, 4500);
+}
+
+function selectOriginalMix() {
+  if (phase !== 'mixing') return;
+  playOriginalMix();
+  showOriginalMixNotice();
+}
+
+original.addEventListener('click', selectOriginalMix);
 
 if (location.protocol === 'file:') {
   enter.disabled = true;

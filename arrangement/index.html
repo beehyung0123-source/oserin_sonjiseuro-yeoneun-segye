@@ -7,41 +7,119 @@
   <link rel="stylesheet" href="style.css">
   <script src="sound.js" defer></script>
   <script src="visuals.js" defer></script>
+  <script src="guidance.js" defer></script>
   <script type="module" src="hand-cursor.js"></script>
 </head>
 <body>
   <main>
     <section id="waiting" class="waiting" aria-labelledby="waiting-title">
       <div class="waiting-content">
-        <h1 id="waiting-title" lang="en">What’s<br>Missing?</h1>
-        <p id="waiting-status" role="status">운영자는 Space 또는 Enter를 눌러 오디오를 켜 주세요.</p>
-        <div class="waiting-suits" aria-hidden="true">
-          <span class="suit">♣︎</span>
-          <span class="suit">♠︎</span>
-          <span class="suit">♦︎</span>
-          <span class="suit">♥︎</span>
+        <div class="tape-deck" aria-hidden="true">
+          <div class="waiting-deck-scene">
+            <img class="deck-body" src="turntable-plinth.webp" alt="">
+            <img class="vinyl" src="turntable-vinyl.webp" alt="">
+          </div>
         </div>
-        <p id="hand-ready" hidden>손이 인식되었습니다.</p>
-        <div class="transport waiting-actions">
-          <button id="enter" type="button" lang="en">START</button>
-          <button id="waiting-original" type="button">원곡 듣기</button>
+        <div class="waiting-panel">
+          <h1 id="waiting-title" lang="en">What’s<br>Missing?</h1>
+          <p id="waiting-status" role="status">시작하기를 누르거나 손으로 집어 주세요.</p>
+
+          <p id="hand-ready" class="visually-hidden" hidden>손이 인식되었습니다.</p>
+          <div id="waiting-guide-slot"></div>
+          <div class="transport waiting-actions">
+            <button id="enter" type="button">시작하기</button>
+            <button id="waiting-original" type="button">원곡 듣기</button>
+          </div>
         </div>
       </div>
     </section>
 
     <section id="mixer" class="mixer" aria-labelledby="mixer-title" hidden>
-      <header>
-        <h1 id="mixer-title" lang="en">What’s Missing?</h1>
-        <p>카드를 짧게 집었다 놓으면 소리가 켜지거나 꺼집니다. 집은 채 위아래로 움직이면 볼륨이 바뀝니다. FINISH를 1.5초 동안 가리키면 체험이 끝납니다.</p>
+      <header class="machine-header">
+        <div class="machine-brand" lang="en">
+          <h1 id="mixer-title">What’s Missing?</h1>
+          <span>Interactive audio system</span>
+        </div>
+        <div class="track-info" lang="en">
+          <span>TRACK 01</span>
+          <strong>What’s Missing? / Stem mix</strong>
+          <span>BPM — <span aria-hidden="true">│</span> LEFT <time id="remaining" role="timer" aria-label="체험 남은 시간"></time></span>
+        </div>
+        <canvas class="signal-overview" width="240" height="56" aria-hidden="true"></canvas>
+        <div class="tracking" lang="en">
+          <span>HAND TRACKING</span>
+          <strong class="tracking-active">● ACTIVE</strong>
+          <strong class="tracking-idle">○ STANDBY</strong>
+          <span id="dual-hand-hint" lang="en" hidden>USE BOTH HANDS</span>
+        </div>
       </header>
 
-      <div class="transport mixer-controls">
-        <span class="countdown">남은 시간 <time id="remaining" role="timer"></time></span>
-        <button id="original" type="button">원곡 듣기</button>
-        <button id="finish" type="button" lang="en">FINISH</button>
+      <div class="machine-body">
+        <section class="tape-deck interactive-deck" aria-label="턴테이블 조작">
+          <div class="deck-scene" data-state="power-off">
+            <img class="deck-body" src="turntable-plinth-clean.webp" alt="" draggable="false">
+            <img class="vinyl" src="turntable-vinyl.webp" alt="" draggable="false">
+            <div class="arm-bearing" aria-hidden="true"></div>
+            <div class="tonearm" aria-hidden="true">
+              <img class="arm-image" src="turntable-tonearm.webp" alt="" draggable="false">
+              <span class="needle-tip"></span>
+              <div id="cartridge"></div>
+            </div>
+            <div id="deck-guide-slot"></div>
+            <div class="deck-controls">
+              <button id="turntable-power" type="button" aria-pressed="false" lang="en">POWER</button>
+              <output id="turntable-status" lang="en">POWER OFF</output>
+            </div>
+          </div>
+        </section>
+        <section class="master-filter" aria-labelledby="master-filter-title">
+          <div id="filter-guide-slot"></div>
+          <h2 id="master-filter-title" lang="en">MASTER FILTER</h2>
+          <div class="filter-unit">
+            <p id="master-filter-mode" class="filter-mode" lang="en">LPF / CUTOFF</p>
+            <div class="filter-knob">
+              <span class="filter-scale" aria-hidden="true"></span>
+              <span class="filter-dial" aria-hidden="true"></span>
+              <input id="master-cutoff" class="filter-control" type="range" min="0" max="1" step="0.001" value="1"
+                     aria-labelledby="master-filter-title master-filter-mode" aria-orientation="vertical"
+                     aria-valuetext="18.0 kHz">
+            </div>
+            <output class="filter-display" for="master-cutoff" aria-live="off" lang="en">FREQ: <span id="master-frequency" class="filter-frequency">18.0 kHz</span></output>
+            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중 · ↑↓</strong></p>
+          </div>
+          <div class="filter-unit filter-unit-hpf">
+            <p id="master-hpf-mode" class="filter-mode" lang="en">HPF / CUTOFF</p>
+            <div class="filter-knob">
+              <span class="filter-scale" aria-hidden="true"></span>
+              <span class="filter-dial" aria-hidden="true"></span>
+              <input id="master-hpf-cutoff" class="filter-control" type="range" min="0" max="1" step="0.001" value="0"
+                     aria-labelledby="master-filter-title master-hpf-mode" aria-orientation="vertical"
+                     aria-valuetext="20 Hz">
+            </div>
+            <output class="filter-display" for="master-hpf-cutoff" aria-live="off" lang="en">FREQ: <span id="master-hpf-frequency" class="filter-frequency">20 Hz</span></output>
+            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중 · ↑↓</strong></p>
+          </div>
+        </section>
+        <section class="tracks" aria-label="소리 조작"></section>
       </div>
-
-      <section class="tracks" aria-label="소리 조작"></section>
+      <footer class="machine-footer">
+        <div class="transport mixer-controls">
+          <button id="playback" type="button" disabled>LIFT</button>
+          <button id="finish" type="button" lang="en">FINISH</button>
+          <button id="original" type="button">원곡 듣기</button>
+        </div>
+        <div class="playback-info">
+          <span class="play-state" role="status">STOPPED</span>
+          <output id="playback-time">00:00 / 00:00</output>
+        </div>
+        <canvas class="signal-wave" width="480" height="64" aria-hidden="true"></canvas>
+        <div class="usage">
+          <div id="mix-guide-slot"></div>
+          <strong lang="en">STEM MIXER / 4-CHANNEL</strong>
+          <span class="quick-mix-hint">짧게 집기 ON/OFF · 세로 이동 볼륨</span>
+          <span id="mixer-hint" role="status">POWER를 집고 카트리지를 LP 홈에 놓기</span>
+        </div>
+      </footer>
     </section>
 
     <section id="result" class="result" aria-labelledby="result-title" hidden>
@@ -63,17 +141,27 @@
       <article class="track">
         <span class="grab-status" lang="en" hidden>GRABBED</span>
         <button class="toggle" type="button" aria-pressed="false" disabled>
+          <span class="channel-number" aria-hidden="true"></span>
           <span class="name" lang="en"></span>
           <span class="state" aria-hidden="true">OFF</span>
-          <canvas class="stem-visual" aria-hidden="true"></canvas>
         </button>
-        <div class="level">
-          <span class="level-limit" aria-hidden="true">100</span>
-          <input class="volume" type="range" min="0" max="100" value="100" aria-orientation="vertical" disabled>
-          <span class="level-limit" aria-hidden="true">0</span>
-          <output class="amount" aria-hidden="true">100%</output>
+        <div class="channel-controls">
+          <canvas class="stem-visual" width="24" height="160" aria-hidden="true"></canvas>
+          <div class="level">
+            <span class="level-limit" aria-hidden="true">100</span>
+            <span class="fader-scale" aria-hidden="true"><i>90</i><i>80</i><i>70</i><i>60</i><i>50</i><i>40</i><i>30</i><i>20</i><i>10</i></span>
+            <input class="volume" type="range" min="0" max="100" value="100" aria-orientation="vertical" disabled>
+            <span class="level-limit" aria-hidden="true">0</span>
+          </div>
         </div>
+        <output class="amount" aria-hidden="true">100%</output>
       </article>
+    </template>
+    <template id="visitor-guide-template">
+      <div class="visitor-guide" hidden>
+        <strong class="guide-title" lang="en"></strong>
+        <span class="guide-detail"></span>
+      </div>
     </template>
   </main>
   <div class="hand-cursor" data-hand="Left" aria-hidden="true" hidden><span>L</span></div>
