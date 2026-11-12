@@ -8,6 +8,10 @@ const files = new Map([
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
   ['/sound.js', ['sound.js', 'text/javascript; charset=utf-8']],
+  ['/screen.html', ['screen.html', 'text/html; charset=utf-8']],
+  ['/screen.css', ['screen.css', 'text/css; charset=utf-8']],
+  ['/screen.js', ['screen.js', 'text/javascript; charset=utf-8']],
+  ['/glass-suits.png', ['glass-suits.png', 'image/png']],
 ]);
 for (const id of ['drum', 'bass', 'synth', 'vocal']) {
   const file = `음악/${id}.wav`;
