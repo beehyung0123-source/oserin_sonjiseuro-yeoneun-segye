@@ -282,7 +282,8 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 }
 #turntable-power {
   pointer-events: auto;
-  min-height: 2.35rem;
+  min-height: 2.75rem;
+  min-width: 5.4rem;
   padding: 0.4rem 0.65rem;
   border: 1px solid #55595a;
   border-radius: 0.27rem;
