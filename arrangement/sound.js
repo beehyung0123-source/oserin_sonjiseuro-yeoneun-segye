@@ -34,7 +34,6 @@ const readyMessage = '손으로 START를 1초 동안 가리켜 주세요.';
 for (const track of tracks) {
   const card = template.content.firstElementChild.cloneNode(true);
   card.dataset.track = track.id;
-  card.querySelector('.suit').textContent = track.suit;
   card.querySelector('.name').textContent = track.name.toUpperCase();
 
   track.card = card;
@@ -123,7 +122,10 @@ async function activateAudio() {
         track.source.loop = true;
         track.gain = context.createGain();
         track.gain.gain.value = 0;
-        track.source.connect(track.gain).connect(master);
+        track.analyser = context.createAnalyser();
+        track.analyser.fftSize = 512;
+        // Measure the audible stem after its gain, along its single output path.
+        track.source.connect(track.gain).connect(track.analyser).connect(master);
         track.source.start(startTime);
       });
       audioReady = true;

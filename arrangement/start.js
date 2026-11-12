@@ -8,6 +8,7 @@ const files = new Map([
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
   ['/sound.js', ['sound.js', 'text/javascript; charset=utf-8']],
+  ['/visuals.js', ['visuals.js', 'text/javascript; charset=utf-8']],
   ['/hand-cursor.js', ['hand-cursor.js', 'text/javascript; charset=utf-8']],
 ]);
 for (const id of ['drum', 'bass', 'synth', 'vocal']) {

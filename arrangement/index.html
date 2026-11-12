@@ -6,6 +6,7 @@
   <title>What’s Missing?</title>
   <link rel="stylesheet" href="style.css">
   <script src="sound.js" defer></script>
+  <script src="visuals.js" defer></script>
   <script type="module" src="hand-cursor.js"></script>
 </head>
 <body>
@@ -62,12 +63,12 @@
       <article class="track">
         <span class="grab-status" lang="en" hidden>GRABBED</span>
         <button class="toggle" type="button" aria-pressed="false" disabled>
-          <span class="suit" aria-hidden="true"></span>
           <span class="name" lang="en"></span>
           <span class="state" aria-hidden="true">OFF</span>
+          <canvas class="stem-visual" aria-hidden="true"></canvas>
         </button>
         <div class="level">
-          <input class="volume" type="range" min="0" max="100" value="100" aria-orientation="vertical" disabled>
+          <input class="volume" type="range" min="0" max="100" value="100" disabled>
           <output class="amount" aria-hidden="true">100%</output>
         </div>
       </article>
