@@ -21,7 +21,6 @@ const startButton = document.querySelector('#enter');
 const finishButton = document.querySelector('#finish');
 const waitingOriginalButton = document.querySelector('#waiting-original');
 const dwellActions = new Map([
-  [finishButton, finishExperience],
   [document.querySelector('#original'), playOriginalMix],
   [waitingOriginalButton, () => startExperience(true)],
 ]);
@@ -109,7 +108,7 @@ function getPinchRatio(hand) {
 function pauseHand(hand) {
   hand.candidate = null;
   hand.pinchFrames = 0;
-  hand.pointingAtStart = false;
+  hand.pointedButton = null;
   hand.dwellButton = null;
   if (hand.drag) {
     hand.drag.interrupted = true;
@@ -209,13 +208,15 @@ function updateHand(hand, detection, timestamp) {
   const target = document.elementFromPoint(hand.position.x * clientWidth, hand.position.y * clientHeight);
   const button = target?.closest('button');
   const card = target?.closest('.tracks .track') ?? null;
-  hand.pointingAtStart = button === startButton && canStartExperience();
+  const canPinchButton = (button === startButton && canStartExperience())
+    || (button === finishButton && !mixer.hidden);
+  hand.pointedButton = canPinchButton ? button : null;
   const palmPixels = { x: palm.x * clientWidth, y: palm.y * clientHeight };
   const ratio = getPinchRatio(points);
   const opening = hand.pinchState !== 'open';
   const pinchChanged = opening ? ratio >= pinchReleaseRatio : ratio <= pinchStartRatio;
   hand.pinchFrames = pinchChanged ? hand.pinchFrames + 1 : 0;
-  if (!opening && hand.pinchFrames === 1) hand.pinchingStart = hand.pointingAtStart;
+  if (!opening && hand.pinchFrames === 1) hand.pinchButton = hand.pointedButton;
 
   const drag = hand.drag;
   if (drag && !drag.dragging && palmDistance(palmPixels, drag.palm) > dragThresholdPx) {
@@ -227,8 +228,12 @@ function updateHand(hand, detection, timestamp) {
     hand.candidate = null;
     if (!opening) {
       hand.pinchState = 'closed';
-      if (hand.pinchingStart) startExperience();
-      else grabCard(hand, card, palmPixels, timestamp);
+      if (hand.pinchButton === startButton) startExperience();
+      else if (hand.pinchButton === finishButton) {
+        finishExperience();
+        hands.forEach(resetHand);
+        return;
+      } else grabCard(hand, card, palmPixels, timestamp);
     } else {
       hand.pinchState = 'open';
       if (drag && !drag.dragging && !drag.interrupted && timestamp - drag.startedAt <= shortPinchMs) {
@@ -264,7 +269,8 @@ function updateControls(timestamp) {
   }
   const canStart = canStartExperience();
   handReady.hidden = !canStart || hands.every(hand => hand.cursor.hidden);
-  startButton.classList.toggle('is-hand-pointed', canStart && hands.some(hand => hand.pointingAtStart));
+  startButton.classList.toggle('is-hand-pointed', canStart && hands.some(hand => hand.pointedButton === startButton));
+  finishButton.classList.toggle('is-hand-pointed', !mixer.hidden && hands.some(hand => hand.pointedButton === finishButton));
   for (const [button, action] of dwellActions) {
     const pointing = hands.filter(hand => hand.dwellButton === button);
     if (!pointing.length) {
@@ -277,10 +283,6 @@ function updateControls(timestamp) {
     if (progress < 1 || completedDwells.has(button)) continue;
     completedDwells.add(button);
     action();
-    if (button === finishButton) {
-      hands.forEach(resetHand);
-      button.style.removeProperty('--dwell-progress');
-    }
   }
 }
 
