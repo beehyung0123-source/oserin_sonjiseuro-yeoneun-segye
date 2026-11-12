@@ -7,11 +7,13 @@
   <link rel="stylesheet" href="screen.css">
   <link rel="preload" href="glass-suits.png" as="image">
   <script src="screen.js" defer></script>
+  <script type="module" src="hand-cursor.js"></script>
 </head>
 <body>
   <main class="screen-stage is-waiting" aria-label="음악에 반응하는 카드 문양">
     <canvas class="light-ribbon" aria-hidden="true"></canvas>
     <div class="suits" aria-hidden="true"></div>
+    <div class="hand-cursor" aria-hidden="true" hidden></div>
   </main>
   <button class="screen-fullscreen" type="button">전체 화면</button>
 </body>

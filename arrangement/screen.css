@@ -25,6 +25,19 @@ body { margin: 0; }
 
 .screen-stage.has-suits .light-ribbon { opacity: 0.16; }
 
+.hand-cursor {
+  position: absolute;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #15171a;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px #ffffff80;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .suits,
 .suit-group { position: absolute; inset: 0; }
 

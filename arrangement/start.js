@@ -11,6 +11,7 @@ const files = new Map([
   ['/screen.html', ['screen.html', 'text/html; charset=utf-8']],
   ['/screen.css', ['screen.css', 'text/css; charset=utf-8']],
   ['/screen.js', ['screen.js', 'text/javascript; charset=utf-8']],
+  ['/hand-cursor.js', ['hand-cursor.js', 'text/javascript; charset=utf-8']],
   ['/glass-suits.png', ['glass-suits.png', 'image/png']],
 ]);
 for (const id of ['drum', 'bass', 'synth', 'vocal']) {
