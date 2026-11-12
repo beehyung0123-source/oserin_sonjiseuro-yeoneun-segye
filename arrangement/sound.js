@@ -26,13 +26,18 @@ let buffers;
 let phase = 'waiting';
 let audioReady = false;
 let activating;
-let endsAt;
 let sessionTimer;
 let resultUntil;
 let mixAnalyser;
-let mixStartedAt;
-let transportChanging = false;
+let activeMix = null;
+let wantsPlayback = false;
+let mixOffset = 0;
+let sessionPlayed = 0;
+let silentAt = 0;
+let defaultMixOnCue = false;
+const transportFadeSeconds = 0.09;
 const resultSeconds = 5;
+const unlockMessage = '운영자는 Space 또는 Enter를 눌러 오디오를 켜 주세요.';
 const readyMessage = 'START나 원곡 듣기에 검지 커서를 올리고 엄지와 검지를 붙이세요.';
 
 for (const [index, track] of tracks.entries()) {
@@ -63,6 +68,7 @@ function toggleStem(id) {
   if (phase !== 'mixing') return;
   const track = tracks.find(track => track.id === id);
   if (!track) return;
+  defaultMixOnCue = false;
   track.enabled = !track.enabled;
   updateTrack(track);
 }
@@ -72,6 +78,7 @@ function setStemVolume(id, volume) {
   const track = tracks.find(track => track.id === id);
   const nextVolume = Math.round(Math.min(100, Math.max(0, volume)));
   if (!track || track.volume === nextVolume) return;
+  defaultMixOnCue = false;
   track.volume = nextVolume;
   updateTrack(track);
 }
@@ -92,6 +99,75 @@ function updateTrack(track, when = context.currentTime) {
   track.amount.textContent = `${track.volume}%`;
 }
 
+function activeMixElapsed(now = context.currentTime) {
+  return activeMix ? Math.max(0, now - activeMix.startAt) : 0;
+}
+
+function getMixPosition() {
+  return (mixOffset + activeMixElapsed()) % buffers[0].duration;
+}
+
+function isMixPlaying() {
+  return Boolean(activeMix && context.state === 'running' && context.currentTime >= activeMix.startAt);
+}
+
+function startMix() {
+  if (!wantsPlayback || activeMix || context.state !== 'running') return;
+  if (defaultMixOnCue) playOriginalMix();
+
+  const startAt = Math.max(context.currentTime + 0.02, silentAt);
+  const voices = tracks.map((track, index) => {
+    const source = context.createBufferSource();
+    const fade = context.createGain();
+    source.buffer = buffers[index];
+    source.loop = true;
+    fade.gain.value = 0;
+    source.connect(fade).connect(track.gain);
+    fade.gain.setValueAtTime(0, startAt);
+    fade.gain.linearRampToValueAtTime(1, startAt + transportFadeSeconds);
+    source.addEventListener('ended', () => {
+      source.disconnect();
+      fade.disconnect();
+    }, { once: true });
+    source.start(startAt, mixOffset);
+    return { source, fade };
+  });
+  activeMix = { startAt, voices };
+}
+
+function stopMix(resetPosition = false) {
+  if (activeMix) {
+    const now = context.currentTime;
+    const elapsed = activeMixElapsed(now);
+    sessionPlayed += elapsed;
+    mixOffset = (mixOffset + elapsed) % buffers[0].duration;
+    const shouldFade = elapsed > 0 && context.state === 'running';
+    const stopAt = shouldFade ? now + transportFadeSeconds : now;
+    for (const { source, fade } of activeMix.voices) {
+      if (shouldFade) {
+        fade.gain.cancelScheduledValues(now);
+        fade.gain.setValueAtTime(Math.min(1, elapsed / transportFadeSeconds), now);
+        fade.gain.linearRampToValueAtTime(0, stopAt);
+      }
+      source.stop(stopAt);
+    }
+    // A new cue can be queued while the previous four sources fade out.
+    silentAt = Math.max(silentAt, stopAt);
+    activeMix = null;
+  }
+  if (resetPosition) mixOffset = 0;
+}
+
+function setTurntableTransport(state) {
+  wantsPlayback = state === 'needle-down' && phase === 'mixing';
+  if (wantsPlayback) startMix();
+  else stopMix(state === 'power-off');
+}
+
+function resumeAudioFromInput() {
+  context.resume().catch(error => console.warn('오디오를 다시 켤 수 없습니다.', error));
+}
+
 async function loadBuffer(track) {
   const response = await fetch(`./음악/${track.id}.wav`);
   if (!response.ok) throw new Error(`${track.name} 음원 요청 실패 (${response.status})`);
@@ -109,7 +185,15 @@ async function activateAudio() {
   waitingStatus.textContent = '음원을 불러오는 중입니다…';
 
   activating = (async () => {
-    context ??= new AudioContext();
+    if (!context) {
+      context = new AudioContext();
+      context.addEventListener('statechange', () => {
+        startMix();
+        if (audioReady && phase === 'waiting') {
+          waitingStatus.textContent = canStartExperience() ? readyMessage : unlockMessage;
+        }
+      });
+    }
     // Called directly from a trusted keyboard or mouse event.
     await context.resume();
     if (context.state !== 'running') throw new Error('AudioContext: ' + context.state);
@@ -122,19 +206,13 @@ async function activateAudio() {
       mixAnalyser = context.createAnalyser();
       mixAnalyser.fftSize = 512;
       master.connect(mixAnalyser).connect(context.destination);
-      const startTime = context.currentTime + 0.06;
-      mixStartedAt = startTime;
-      tracks.forEach((track, index) => {
-        track.source = context.createBufferSource();
-        track.source.buffer = buffers[index];
-        track.source.loop = true;
+      tracks.forEach(track => {
         track.gain = context.createGain();
         track.gain.gain.value = 0;
         track.analyser = context.createAnalyser();
         track.analyser.fftSize = 512;
         // Measure the audible stem after its gain, along its single output path.
-        track.source.connect(track.gain).connect(track.analyser).connect(master);
-        track.source.start(startTime);
+        track.gain.connect(track.analyser).connect(master);
       });
       audioReady = true;
     }
@@ -157,11 +235,12 @@ async function activateAudio() {
 function startExperience(withOriginalMix = false) {
   if (!canStartExperience()) return;
   phase = 'mixing';
+  sessionPlayed = 0;
+  defaultMixOnCue = !withOriginalMix;
   for (const track of tracks) {
     track.enabled = withOriginalMix;
     updateTrack(track);
   }
-  endsAt = context.currentTime + buffers[0].duration * 2;
   waiting.hidden = true;
   mixer.hidden = false;
   updateSession();
@@ -170,6 +249,7 @@ function startExperience(withOriginalMix = false) {
 
 function showResult() {
   phase = 'result';
+  setTurntableTransport('power-off');
   const audible = tracks.filter(track => track.enabled && track.volume > 0);
   resultTracks.replaceChildren(...audible.map(track => {
     const item = resultTemplate.content.firstElementChild.cloneNode(true);
@@ -186,7 +266,6 @@ function showResult() {
     updateTrack(track);
   }
   resultUntil = performance.now() + resultSeconds * 1000;
-  if (context.state === 'suspended') context.resume().catch(console.warn);
   mixer.hidden = true;
   result.hidden = false;
   resultTitle.focus();
@@ -197,7 +276,7 @@ function returnToWaiting() {
   clearInterval(sessionTimer);
   mixer.hidden = true;
   result.hidden = true;
-  waitingStatus.textContent = readyMessage;
+  waitingStatus.textContent = canStartExperience() ? readyMessage : unlockMessage;
   waiting.hidden = false;
 }
 
@@ -208,7 +287,7 @@ function updateSession() {
     return;
   }
 
-  const left = endsAt - context.currentTime;
+  const left = buffers[0].duration * 2 - sessionPlayed - activeMixElapsed();
   if (left <= 0) {
     showResult();
     return;
@@ -228,21 +307,6 @@ function finishExperience() {
   if (phase === 'mixing') showResult();
 }
 
-document.querySelector('#playback').addEventListener('click', async () => {
-  if (phase !== 'mixing' || transportChanging) return;
-  transportChanging = true;
-  try {
-    if (context.state === 'running') await context.suspend();
-    else await context.resume();
-    // A hand-triggered FINISH can occur while suspension is in flight.
-    if (phase !== 'mixing' && context.state === 'suspended') await context.resume();
-  } catch (error) {
-    console.warn('재생 상태를 변경할 수 없습니다.', error);
-  } finally {
-    transportChanging = false;
-  }
-});
-
 async function startFromClick(withOriginalMix) {
   if (!canStartExperience()) await activateAudio();
   startExperience(withOriginalMix);
@@ -253,17 +317,22 @@ waitingOriginal.addEventListener('click', () => startFromClick(true));
 finish.addEventListener('click', finishExperience);
 
 document.addEventListener('keydown', event => {
-  if (!event.isTrusted || location.protocol === 'file:' || phase !== 'waiting' || canStartExperience()
-      || event.repeat || !['Space', 'Enter'].includes(event.code)) return;
-  event.preventDefault();
-  activateAudio();
+  if (!event.isTrusted || location.protocol === 'file:' || event.repeat
+      || !['Space', 'Enter'].includes(event.code)) return;
+  if (phase === 'waiting' && !canStartExperience()) {
+    event.preventDefault();
+    activateAudio();
+  } else if (phase === 'mixing' && context.state !== 'running') {
+    event.preventDefault();
+    resumeAudioFromInput();
+  }
 });
 document.addEventListener('visibilitychange', updateSession);
 window.addEventListener('pageshow', updateSession);
 
 function playOriginalMix() {
   if (phase !== 'mixing') return;
-  if (context.state === 'suspended') context.resume().catch(console.warn);
+  defaultMixOnCue = false;
   const now = context.currentTime;
   for (const track of tracks) {
     track.enabled = true;

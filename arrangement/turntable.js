@@ -3,6 +3,7 @@ const mixer = document.querySelector('#mixer');
 const arm = scene.querySelector('.tonearm');
 const cartridge = scene.querySelector('#cartridge');
 const status = scene.querySelector('#turntable-status');
+const liftButton = document.querySelector('#playback');
 
 // All points use the width of the 4:3 artwork as their unit.
 const pivot = { x: 0.903, y: 0.174 };
@@ -34,7 +35,7 @@ const lastGroove = grooveAngles.at(-1);
 
 const states = {
   'power-off': 'POWER OFF',
-  'needle-up': 'POWER ON / NEEDLE UP',
+  'needle-up': 'PLACE THE NEEDLE',
   'needle-down': 'POWER ON / NEEDLE DOWN',
 };
 
@@ -61,11 +62,17 @@ function pointOnDeck(clientX, clientY) {
   return { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.width };
 }
 
-function park(nextState) {
+function setState(nextState) {
+  const changed = state !== nextState;
   state = nextState;
+  render();
+  if (changed) setTurntableTransport(state);
+}
+
+function park(nextState) {
   angle = 0;
   drag = null;
-  render();
+  setState(nextState);
 }
 
 function togglePower() {
@@ -85,7 +92,7 @@ function grab(owner, x, y) {
   }
   const aim = pointOnDeck(x, y);
   drag = { owner, offset: angle - direction(aim), dropAngle: null };
-  state = 'needle-up';
+  setState('needle-up');
   move(owner, x, y);
   return true;
 }
@@ -94,28 +101,30 @@ function heldBy(owner) {
   return drag?.owner === owner;
 }
 
+function isNearGrooves(point) {
+  const distance = distanceToRecord(point);
+  return distance >= record.inner - snapDistance && distance <= record.outer + snapDistance;
+}
+
 function move(owner, x, y) {
   if (!heldBy(owner)) return;
   const aim = pointOnDeck(x, y);
   const aimedAngle = Math.max(0, Math.min(armLimit, direction(aim) + drag.offset));
   const grooveAngle = Math.max(firstGroove, Math.min(lastGroove, aimedAngle));
-  const distance = distanceToRecord(aim);
-  const nearGrooves = distance >= record.inner - snapDistance && distance <= record.outer + snapDistance;
-  drag.dropAngle = nearGrooves && Math.abs(grooveAngle - aimedAngle) <= snapAngle ? grooveAngle : null;
+  drag.dropAngle = isNearGrooves(aim) && Math.abs(grooveAngle - aimedAngle) <= snapAngle ? grooveAngle : null;
   angle = drag.dropAngle ?? aimedAngle;
   render();
 }
 
-function release(owner) {
+function release(owner, x, y) {
   if (!heldBy(owner)) return;
-  if (drag.dropAngle == null) {
+  if (drag.dropAngle == null || !isNearGrooves(pointOnDeck(x, y))) {
     park('needle-up');
     return;
   }
   angle = drag.dropAngle;
   drag = null;
-  state = 'needle-down';
-  render();
+  setState('needle-down');
 }
 
 function cancel(owner) {
@@ -129,6 +138,11 @@ function pointAtCartridge(pointed) {
 export const powerButton = scene.querySelector('#turntable-power');
 export const turntable = { togglePower, canGrab, grab, heldBy, move, release, cancel, pointAtCartridge };
 powerButton.addEventListener('click', togglePower);
+liftButton.addEventListener('click', () => {
+  if (mixer.hidden) return;
+  if (context.state !== 'running') resumeAudioFromInput();
+  else if (state === 'needle-down') setState('needle-up');
+});
 
 cartridge.addEventListener('pointerdown', event => {
   if (event.button !== 0 || !grab(event.pointerId, event.clientX, event.clientY)) return;
@@ -138,7 +152,7 @@ cartridge.addEventListener('pointerdown', event => {
 scene.addEventListener('pointermove', event => move(event.pointerId, event.clientX, event.clientY));
 scene.addEventListener('pointerup', event => {
   move(event.pointerId, event.clientX, event.clientY);
-  release(event.pointerId);
+  release(event.pointerId, event.clientX, event.clientY);
 });
 scene.addEventListener('lostpointercapture', event => cancel(event.pointerId));
 

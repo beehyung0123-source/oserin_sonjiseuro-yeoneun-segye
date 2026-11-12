@@ -226,10 +226,13 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   top: -15cqw;
   max-width: none;
   filter: drop-shadow(0.5cqw 0.8cqw 0.4cqw #0007);
-  transition: filter 150ms ease-out;
+  transform-origin: 57.9% 22.5%;
+  transform: scaleY(0.984);
+  transition: filter 150ms ease-out, transform 150ms ease-out;
 }
 .deck-scene[data-state="needle-down"] .arm-image {
   filter: drop-shadow(0.18cqw 0.18cqw 0.12cqw #000a);
+  transform: none;
 }
 .needle-tip, #cartridge {
   position: absolute;

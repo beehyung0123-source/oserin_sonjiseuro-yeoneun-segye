@@ -70,12 +70,12 @@
       </div>
       <footer class="machine-footer">
         <div class="transport mixer-controls">
-          <button id="playback" type="button" lang="en">PAUSE</button>
+          <button id="playback" type="button" disabled>LIFT</button>
           <button id="finish" type="button" lang="en">FINISH</button>
           <button id="original" type="button">원곡 듣기</button>
         </div>
-        <div class="playback-info" lang="en">
-          <span class="play-state">PLAY</span>
+        <div class="playback-info">
+          <span class="play-state" role="status">STOPPED</span>
           <output id="playback-time">00:00 / 00:00</output>
         </div>
         <canvas class="signal-wave" width="480" height="64" aria-hidden="true"></canvas>

@@ -113,6 +113,7 @@ function pauseHand(hand) {
   hand.pinchFrames = 0;
   hand.pointedButton = null;
   hand.pointedCartridge = false;
+  if (turntable.heldBy(hand)) hand.armTrackingInterrupted = true;
   if (hand.drag) {
     hand.drag.interrupted = true;
     hand.drag.rebase = true;
@@ -221,6 +222,10 @@ function updateHand(hand, detection, timestamp) {
   hand.pointedButton = canPinchButton ? button : null;
   const palmPixels = { x: palm.x * clientWidth, y: palm.y * clientHeight };
   const ratio = getPinchRatio(points);
+  if (holdingArm) {
+    if (!Number.isFinite(ratio)) hand.armTrackingInterrupted = true;
+    else if (ratio <= pinchStartRatio) hand.armTrackingInterrupted = false;
+  }
   const opening = hand.pinchState !== 'open';
   const pinchChanged = opening ? ratio >= pinchReleaseRatio : ratio <= pinchStartRatio;
   hand.pinchFrames = pinchChanged ? hand.pinchFrames + 1 : 0;
@@ -228,7 +233,9 @@ function updateHand(hand, detection, timestamp) {
     hand.pinchButton = hand.pointedButton;
     hand.pinchCartridge = hand.pointedCartridge;
   }
-  if (holdingArm && !pinchChanged) turntable.move(hand, cursorX, cursorY);
+  if (holdingArm && !hand.armTrackingInterrupted && (!pinchChanged || hand.pinchFrames === 1)) {
+    turntable.move(hand, cursorX, cursorY);
+  }
 
   const drag = hand.drag;
   if (drag && !drag.dragging && palmDistance(palmPixels, drag.palm) > dragThresholdPx) {
@@ -246,13 +253,19 @@ function updateHand(hand, detection, timestamp) {
         return;
       }
       if (hand.pinchCartridge) {
-        if (turntable.grab(hand, cursorX, cursorY)) selectCard(hand, null);
+        if (turntable.grab(hand, cursorX, cursorY)) {
+          hand.armTrackingInterrupted = false;
+          selectCard(hand, null);
+        }
         return;
       }
       grabCard(hand, card, palmPixels, timestamp);
     } else {
       hand.pinchState = 'open';
-      turntable.release(hand);
+      if (holdingArm) {
+        if (hand.armTrackingInterrupted) turntable.cancel(hand);
+        else turntable.release(hand, x * clientWidth, y * clientHeight);
+      }
       if (drag && !drag.dragging && !drag.interrupted && timestamp - drag.startedAt <= shortPinchMs) {
         toggleStem(drag.stemId);
       }
