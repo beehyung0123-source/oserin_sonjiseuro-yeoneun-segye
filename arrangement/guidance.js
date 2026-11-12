@@ -14,17 +14,16 @@
   const guide = document.querySelector('#visitor-guide-template').content.firstElementChild.cloneNode(true);
   const title = guide.querySelector('.guide-title');
   const detail = guide.querySelector('.guide-detail');
-  const demo = guide.querySelector('.gesture-demo');
   const messages = {
     raise: ['RAISE YOUR HAND TO BEGIN', '카메라 앞에서 손을 들어 보세요.'],
-    start: ['PINCH TO START', 'START에 커서를 올리고 엄지와 검지를 붙이세요.', 'pinch'],
-    power: ['PINCH TO POWER ON', 'POWER에 커서를 올리고 엄지와 검지를 붙이세요.', 'pinch'],
-    needle: ['GRAB THE NEEDLE AND PLACE IT ON THE RECORD', '카트리지를 집고, 표시된 LP 홈까지 옮겨 손을 펴세요.'],
+    start: ['PINCH TO START', 'START에 커서를 올리고 엄지와 검지를 붙이세요.'],
+    power: ['PINCH TO POWER ON', 'POWER에 커서를 올리고 엄지와 검지를 붙이세요.'],
+    needle: ['GRAB THE NEEDLE AND PLACE IT ON THE RECORD', '카트리지를 집고 LP의 검은 홈 위로 옮겨 손을 펴세요.'],
     carry: ['NEEDLE GRABBED', '집은 채 LP 홈으로 옮기세요.'],
     drop: ['OPEN YOUR FINGERS TO PLAY', '지금 손을 펴서 바늘을 내려놓으세요.'],
     playing: ['NOW PLAYING', '바늘이 LP 홈에 놓였습니다.'],
-    mix: ['PINCH & MOVE UP OR DOWN TO MIX', '짧게 집었다 놓으면 ON/OFF · 집은 채 위아래로 움직이면 볼륨 조절', 'vertical'],
-    filter: ['SHAPE THE SOUND WITH FILTERS', '선택 사항 · LPF나 HPF를 집고 위아래로 움직여 보세요.', 'vertical'],
+    mix: ['PINCH & MOVE UP OR DOWN TO MIX', '짧게 집었다 놓으면 ON/OFF · 집은 채 위아래로 움직이면 볼륨 조절'],
+    filter: ['SHAPE THE SOUND WITH FILTERS', '선택 사항 · LPF나 HPF를 집고 위아래로 움직여 보세요.'],
   };
 
   const repeatMs = 5000;
@@ -40,11 +39,9 @@
       currentSlot = slot;
       stageSince = now;
       if (stage) {
-        const [headline, instructions, motion] = messages[stage];
+        const [headline, instructions] = messages[stage];
         title.textContent = headline;
         detail.textContent = instructions;
-        demo.hidden = !motion;
-        demo.dataset.demo = motion ?? '';
         slots[slot].append(guide);
         guide.dataset.stage = stage;
       }
