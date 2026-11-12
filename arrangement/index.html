@@ -50,10 +50,22 @@
       </header>
 
       <div class="machine-body">
-        <div class="tape-deck" aria-hidden="true">
-          <img class="deck-body" src="turntable-plinth.webp" alt="">
-          <img class="vinyl" src="turntable-vinyl.webp" alt="">
-        </div>
+        <section class="tape-deck interactive-deck" aria-label="턴테이블 조작">
+          <div class="deck-scene" data-state="power-off">
+            <img class="deck-body" src="turntable-plinth-clean.webp" alt="" draggable="false">
+            <img class="vinyl" src="turntable-vinyl.webp" alt="" draggable="false">
+            <div class="arm-bearing" aria-hidden="true"></div>
+            <div class="tonearm" aria-hidden="true">
+              <img class="arm-image" src="turntable-tonearm.webp" alt="" draggable="false">
+              <span class="needle-tip"></span>
+              <div id="cartridge"></div>
+            </div>
+            <div class="deck-controls">
+              <button id="turntable-power" type="button" aria-pressed="false" lang="en">POWER</button>
+              <output id="turntable-status" lang="en">POWER OFF</output>
+            </div>
+          </div>
+        </section>
         <section class="tracks" aria-label="소리 조작"></section>
       </div>
       <footer class="machine-footer">
@@ -70,7 +82,7 @@
         <div class="usage">
           <strong lang="en">STEM MIXER / 4-CHANNEL</strong>
           <span>짧게 집기 ON/OFF · 세로 이동 볼륨</span>
-          <span>FINISH와 원곡 듣기는 버튼 위에서 집기</span>
+          <span>POWER를 집고 카트리지를 LP 홈에 놓기</span>
         </div>
       </footer>
     </section>

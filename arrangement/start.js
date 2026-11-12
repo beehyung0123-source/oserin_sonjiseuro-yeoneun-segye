@@ -11,6 +11,9 @@ const files = new Map([
   ['/visuals.js', ['visuals.js', 'text/javascript; charset=utf-8']],
   ['/turntable-plinth.webp', ['turntable-plinth.webp', 'image/webp']],
   ['/turntable-vinyl.webp', ['turntable-vinyl.webp', 'image/webp']],
+  ['/turntable-plinth-clean.webp', ['turntable-plinth-clean.webp', 'image/webp']],
+  ['/turntable-tonearm.webp', ['turntable-tonearm.webp', 'image/webp']],
+  ['/turntable.js', ['turntable.js', 'text/javascript; charset=utf-8']],
   ['/hand-cursor.js', ['hand-cursor.js', 'text/javascript; charset=utf-8']],
 ]);
 for (const id of ['drum', 'bass', 'synth', 'vocal']) {

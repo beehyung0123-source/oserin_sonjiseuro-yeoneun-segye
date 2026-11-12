@@ -1,3 +1,5 @@
+import { powerButton, turntable } from './turntable.js';
+
 const visionPackage = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21';
 const modelUrl = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const indexTip = 8;
@@ -24,6 +26,7 @@ const pinchActions = new Map([
     hands.forEach(resetHand);
   }],
   [document.querySelector('#original'), playOriginalMix],
+  [powerButton, turntable.togglePower],
 ]);
 const handReady = document.querySelector('#hand-ready');
 // Keep the video off the DOM so the TV only shows the cursor.
@@ -109,6 +112,7 @@ function pauseHand(hand) {
   hand.candidate = null;
   hand.pinchFrames = 0;
   hand.pointedButton = null;
+  hand.pointedCartridge = false;
   if (hand.drag) {
     hand.drag.interrupted = true;
     hand.drag.rebase = true;
@@ -117,6 +121,7 @@ function pauseHand(hand) {
 
 function resetHand(hand) {
   pauseHand(hand);
+  turntable.cancel(hand);
   releaseCard(hand);
   selectCard(hand, null);
   hand.position = undefined;
@@ -134,7 +139,7 @@ function matchHands({ landmarks, handedness, handednesses }) {
     return { points, palm: points[9], side: category?.score >= 0.65 ? category.categoryName : null };
   });
   const [first, second] = detections;
-  if (second && hands.some(hand => hand.grabbedCard) && palmDistance(first.palm, second.palm) < 0.065) {
+  if (second && hands.some(hand => hand.grabbedCard || turntable.heldBy(hand)) && palmDistance(first.palm, second.palm) < 0.065) {
     return [null, null];
   }
 
@@ -147,7 +152,7 @@ function matchHands({ landmarks, handedness, handednesses }) {
       return detection.side || !other.palm ? 0.28 : Infinity;
     }
     const distance = palmDistance(hand.palm, detection.palm);
-    if (hand.grabbedCard && (distance > 0.28
+    if ((hand.grabbedCard || turntable.heldBy(hand)) && (distance > 0.28
         || ((!second || distance > 0.12) && other.palm
           && palmDistance(other.palm, detection.palm) + 0.04 < distance))) {
       return Infinity;
@@ -204,10 +209,14 @@ function updateHand(hand, detection, timestamp) {
   hand.cursor.hidden = false;
 
   const { clientWidth, clientHeight } = document.documentElement;
-  const target = document.elementFromPoint(hand.position.x * clientWidth, hand.position.y * clientHeight);
+  const cursorX = hand.position.x * clientWidth;
+  const cursorY = hand.position.y * clientHeight;
+  const target = document.elementFromPoint(cursorX, cursorY);
+  const holdingArm = turntable.heldBy(hand);
+  hand.pointedCartridge = target?.id === 'cartridge' && turntable.canGrab();
   const button = target?.closest('button');
   const card = target?.closest('.tracks .track') ?? null;
-  const canPinchButton = pinchActions.has(button) && !button.disabled
+  const canPinchButton = !holdingArm && pinchActions.has(button) && !button.disabled
     && (!mixer.hidden || canStartExperience());
   hand.pointedButton = canPinchButton ? button : null;
   const palmPixels = { x: palm.x * clientWidth, y: palm.y * clientHeight };
@@ -215,7 +224,11 @@ function updateHand(hand, detection, timestamp) {
   const opening = hand.pinchState !== 'open';
   const pinchChanged = opening ? ratio >= pinchReleaseRatio : ratio <= pinchStartRatio;
   hand.pinchFrames = pinchChanged ? hand.pinchFrames + 1 : 0;
-  if (!opening && hand.pinchFrames === 1) hand.pinchButton = hand.pointedButton;
+  if (!opening && hand.pinchFrames === 1) {
+    hand.pinchButton = hand.pointedButton;
+    hand.pinchCartridge = hand.pointedCartridge;
+  }
+  if (holdingArm && !pinchChanged) turntable.move(hand, cursorX, cursorY);
 
   const drag = hand.drag;
   if (drag && !drag.dragging && palmDistance(palmPixels, drag.palm) > dragThresholdPx) {
@@ -232,9 +245,14 @@ function updateHand(hand, detection, timestamp) {
         action();
         return;
       }
+      if (hand.pinchCartridge) {
+        if (turntable.grab(hand, cursorX, cursorY)) selectCard(hand, null);
+        return;
+      }
       grabCard(hand, card, palmPixels, timestamp);
     } else {
       hand.pinchState = 'open';
+      turntable.release(hand);
       if (drag && !drag.dragging && !drag.interrupted && timestamp - drag.startedAt <= shortPinchMs) {
         toggleStem(drag.stemId);
       }
@@ -244,7 +262,7 @@ function updateHand(hand, detection, timestamp) {
 
   if (hand.drag?.dragging && !pinchChanged) adjustGrabbedVolume(hand.drag, hand.position.y);
 
-  if (!hand.grabbedCard) {
+  if (!hand.grabbedCard && !holdingArm) {
     if (card !== hand.candidate) {
       hand.candidate = card;
       hand.candidateSince = timestamp;
@@ -257,7 +275,9 @@ function updateHand(hand, detection, timestamp) {
 function updateControls() {
   for (const hand of hands) {
     hand.cursor.classList.toggle('is-locked', owners.has(hand.blockedCard));
+    hand.cursor.classList.toggle('is-grabbing', Boolean(hand.grabbedCard) || turntable.heldBy(hand));
   }
+  turntable.pointAtCartridge(hands.some(hand => hand.pointedCartridge));
   const canStart = canStartExperience();
   handReady.hidden = !canStart || hands.every(hand => hand.cursor.hidden);
   for (const button of pinchActions.keys()) {
