@@ -68,7 +68,9 @@
           <canvas class="stem-visual" aria-hidden="true"></canvas>
         </button>
         <div class="level">
-          <input class="volume" type="range" min="0" max="100" value="100" disabled>
+          <span class="level-limit" aria-hidden="true">100</span>
+          <input class="volume" type="range" min="0" max="100" value="100" aria-orientation="vertical" disabled>
+          <span class="level-limit" aria-hidden="true">0</span>
           <output class="amount" aria-hidden="true">100%</output>
         </div>
       </article>
