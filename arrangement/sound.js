@@ -261,14 +261,18 @@ document.addEventListener('keydown', event => {
 document.addEventListener('visibilitychange', updateSession);
 window.addEventListener('pageshow', updateSession);
 
-original.addEventListener('click', () => {
+function playOriginalMix() {
+  if (phase !== 'mixing') return;
+  if (context.state === 'suspended') context.resume().catch(console.warn);
   const now = context.currentTime;
   for (const track of tracks) {
     track.enabled = true;
     track.volume = 100;
     updateTrack(track, now);
   }
-});
+}
+
+original.addEventListener('click', playOriginalMix);
 
 if (location.protocol === 'file:') {
   enter.disabled = true;

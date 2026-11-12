@@ -125,7 +125,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   font-weight: 650;
 }
 .transport button:hover:not(:disabled) { border-color: #303639; }
-#finish { background-image: linear-gradient(to right, #42494d40 var(--dwell-progress, 0%), transparent 0); }
+#finish, #original, #waiting-original { background-image: linear-gradient(to right, #42494d40 var(--dwell-progress, 0%), transparent 0); }
 #enter, #playback {
   color: #f7f7f7;
   background-color: #272a2b;
@@ -371,7 +371,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   padding: 0;
   overflow: hidden;
 }
-.waiting-content .tape-deck { min-height: min(70vh, 43rem); }
+.waiting-content .tape-deck { height: min(70vh, 43rem); }
 .waiting-panel { align-self: center; padding: clamp(1rem, 4vw, 3rem); }
 .waiting-panel h1 { font-size: clamp(2.7rem, 7vw, 6.4rem); }
 #waiting-status { min-height: 2.5em; }
@@ -396,7 +396,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 }
 @media (max-width: 31rem) {
   .waiting-content { grid-template-columns: 1fr; }
-  .waiting-content .tape-deck { min-height: 15rem; }
+  .waiting-content .tape-deck { height: 15rem; }
   .tracks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .track { border-bottom: 1px solid #4a5460; }
   .channel-controls { height: 8rem; }

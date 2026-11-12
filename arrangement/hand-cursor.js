@@ -10,7 +10,7 @@ const selectionDwellMs = 250;
 const trackingGraceMs = 300;
 const shortPinchMs = 350;
 const dragThresholdPx = 25;
-const finishDwellMs = 1500;
+const actionDwellMs = 500;
 const volumeTravel = 0.4; // Fraction of the screen height for a 0–100% adjustment.
 const hands = ['Left', 'Right'].map(side => ({
   side, cursor: document.querySelector(`[data-hand="${side}"]`),
@@ -19,6 +19,13 @@ const hands = ['Left', 'Right'].map(side => ({
 const mixer = document.querySelector('#mixer');
 const startButton = document.querySelector('#enter');
 const finishButton = document.querySelector('#finish');
+const waitingOriginalButton = document.querySelector('#waiting-original');
+const dwellActions = new Map([
+  [finishButton, finishExperience],
+  [document.querySelector('#original'), playOriginalMix],
+  [waitingOriginalButton, () => startExperience(true)],
+]);
+const completedDwells = new Set();
 const handReady = document.querySelector('#hand-ready');
 // Keep the video off the DOM so the TV only shows the cursor.
 const video = document.createElement('video');
@@ -103,7 +110,7 @@ function pauseHand(hand) {
   hand.candidate = null;
   hand.pinchFrames = 0;
   hand.pointingAtStart = false;
-  hand.finishSince = undefined;
+  hand.dwellButton = null;
   if (hand.drag) {
     hand.drag.interrupted = true;
     hand.drag.rebase = true;
@@ -232,10 +239,13 @@ function updateHand(hand, detection, timestamp) {
   }
 
   if (hand.drag?.dragging && !pinchChanged) adjustGrabbedVolume(hand.drag, hand.position.y);
-  if (button === finishButton && !mixer.hidden && hand.pinchState === 'open' && !pinchChanged) {
-    hand.finishSince ??= timestamp;
-  } else {
-    hand.finishSince = undefined;
+  const canDwell = dwellActions.has(button) && !button.disabled
+    && !hand.grabbedCard && !hand.blockedCard && hand.pinchState !== 'awaiting-open'
+    && (button === waitingOriginalButton ? canStartExperience() : !mixer.hidden);
+  const dwellButton = canDwell ? button : null;
+  if (dwellButton !== hand.dwellButton) {
+    hand.dwellButton = dwellButton;
+    hand.dwellSince = timestamp;
   }
 
   if (!hand.grabbedCard) {
@@ -255,13 +265,23 @@ function updateControls(timestamp) {
   const canStart = canStartExperience();
   handReady.hidden = !canStart || hands.every(hand => hand.cursor.hidden);
   startButton.classList.toggle('is-hand-pointed', canStart && hands.some(hand => hand.pointingAtStart));
-  const dwell = Math.max(0, ...hands.map(hand => timestamp - (hand.finishSince ?? timestamp)));
-  if (!mixer.hidden && dwell >= finishDwellMs) {
-    finishExperience();
-    hands.forEach(resetHand);
+  for (const [button, action] of dwellActions) {
+    const pointing = hands.filter(hand => hand.dwellButton === button);
+    if (!pointing.length) {
+      completedDwells.delete(button);
+      button.style.removeProperty('--dwell-progress');
+      continue;
+    }
+    const progress = clamp((timestamp - Math.min(...pointing.map(hand => hand.dwellSince))) / actionDwellMs);
+    button.style.setProperty('--dwell-progress', `${progress * 100}%`);
+    if (progress < 1 || completedDwells.has(button)) continue;
+    completedDwells.add(button);
+    action();
+    if (button === finishButton) {
+      hands.forEach(resetHand);
+      button.style.removeProperty('--dwell-progress');
+    }
   }
-  if (dwell > 0 && !mixer.hidden) finishButton.style.setProperty('--dwell-progress', `${dwell / finishDwellMs * 100}%`);
-  else finishButton.style.removeProperty('--dwell-progress');
 }
 
 function stopTracking(active) {
