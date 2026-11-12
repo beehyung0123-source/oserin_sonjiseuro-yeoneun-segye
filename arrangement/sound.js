@@ -29,7 +29,7 @@ let activating;
 let endsAt;
 let sessionTimer;
 const resultSeconds = 5;
-const readyMessage = '손으로 START를 1초 동안 가리켜 주세요.';
+const readyMessage = '검지 커서를 START 위에 두고 엄지와 검지를 붙여 시작하세요.';
 
 for (const track of tracks) {
   const card = template.content.firstElementChild.cloneNode(true);
@@ -150,7 +150,7 @@ function startExperience(withOriginalMix = false) {
   if (!canStartExperience()) return;
   phase = 'mixing';
   for (const track of tracks) {
-    track.enabled = withOriginalMix || track.id === 'drum';
+    track.enabled = withOriginalMix;
     updateTrack(track);
   }
   endsAt = context.currentTime + buffers[0].duration * 2;

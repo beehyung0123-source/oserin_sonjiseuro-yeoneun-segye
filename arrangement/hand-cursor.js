@@ -10,7 +10,6 @@ const selectionDwellMs = 250;
 const trackingGraceMs = 300;
 const shortPinchMs = 350;
 const dragThresholdPx = 25;
-const startDwellMs = 1000;
 const finishDwellMs = 1500;
 const volumeTravel = 0.4; // Fraction of the screen height for a 0–100% adjustment.
 const cursor = document.querySelector('.hand-cursor');
@@ -38,13 +37,11 @@ function updateDwell(target, timestamp) {
     dwellSince = timestamp;
   }
   if (!target) return;
-  const isStart = target === startButton;
-  const progress = (timestamp - dwellSince) / (isStart ? startDwellMs : finishDwellMs);
+  const progress = (timestamp - dwellSince) / finishDwellMs;
   target.style.setProperty('--dwell-progress', `${Math.min(progress, 1) * 100}%`);
   if (progress < 1) return;
   updateDwell(null);
-  if (isStart) startExperience();
-  else finishExperience();
+  finishExperience();
 }
 
 function grabCard(card, startY, palm, timestamp) {
@@ -108,6 +105,7 @@ function stopTracking(active) {
   session = undefined;
   cursor.hidden = true;
   handReady.hidden = true;
+  startButton.classList.remove('is-hand-pointed');
   updateDwell(null);
   grabCard(null);
   selectCard(null);
@@ -163,6 +161,7 @@ async function startTracking() {
     let candidateSince = 0;
     let pinchState = 'open';
     let pinchFrames = 0;
+    let pinchingStart = false;
 
     function trackFrame(timestamp) {
       try {
@@ -173,6 +172,7 @@ async function startTracking() {
           pinchFrames = 0;
           cursor.hidden = true;
           handReady.hidden = true;
+          startButton.classList.remove('is-hand-pointed');
           updateDwell(null);
           grabCard(null);
           selectCard(null);
@@ -207,6 +207,9 @@ async function startTracking() {
               position.y * viewport.clientHeight,
             );
             const card = target?.closest('.tracks .track') ?? null;
+            const button = target?.closest('button');
+            const pointingAtStart = button === startButton && canStartExperience();
+            startButton.classList.toggle('is-hand-pointed', pointingAtStart);
             const palm = { x: hand[9].x * viewport.clientWidth, y: hand[9].y * viewport.clientHeight };
 
             const pinchRatio = getPinchRatio(hand);
@@ -214,6 +217,7 @@ async function startTracking() {
               ? pinchRatio <= pinchStartRatio
               : pinchRatio >= pinchReleaseRatio;
             pinchFrames = pinchChanged ? pinchFrames + 1 : 0;
+            if (pinchState === 'open' && pinchFrames === 1) pinchingStart = pointingAtStart;
             if (volumeDrag && !volumeDrag.dragging
                 && Math.hypot(palm.x - volumeDrag.palm.x, palm.y - volumeDrag.palm.y) > dragThresholdPx) {
               volumeDrag.dragging = true;
@@ -224,7 +228,12 @@ async function startTracking() {
               candidate = null;
               if (pinchState === 'open') {
                 pinchState = 'closed';
-                grabCard(card, position.y, palm, timestamp);
+                if (pinchingStart) {
+                  startButton.classList.remove('is-hand-pointed');
+                  startExperience();
+                } else {
+                  grabCard(card, position.y, palm, timestamp);
+                }
               } else {
                 pinchState = 'open';
                 if (volumeDrag && !volumeDrag.dragging && !volumeDrag.interrupted
@@ -239,8 +248,6 @@ async function startTracking() {
 
             let action = null;
             if (pinchState === 'open' && !pinchChanged) {
-              const button = target?.closest('button');
-              if (button === startButton && canStartExperience()) action = button;
               if (button === finishButton && !mixer.hidden) action = button;
             }
             updateDwell(action, timestamp);
@@ -258,6 +265,7 @@ async function startTracking() {
             pinchFrames = 0;
             if (volumeDrag) volumeDrag.interrupted = true;
             handReady.hidden = true;
+            startButton.classList.remove('is-hand-pointed');
             updateDwell(null);
           }
           lastFrameTime = timestamp;

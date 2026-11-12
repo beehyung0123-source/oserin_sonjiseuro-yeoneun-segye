@@ -38,7 +38,7 @@ body {
 
 #hand-ready[hidden] { display: block; visibility: hidden; }
 
-#enter, #finish {
+#finish {
   background-image: linear-gradient(to right, #ffffff30 var(--dwell-progress, 0%), transparent 0);
 }
 
@@ -47,6 +47,11 @@ body {
   margin: 0 auto;
   padding: clamp(0.9rem, 3vh, 2rem) 0 1.25rem;
   text-align: center;
+}
+
+#enter.is-hand-pointed {
+  outline: 3px solid #bfe884;
+  outline-offset: 4px;
 }
 
 h1 {
