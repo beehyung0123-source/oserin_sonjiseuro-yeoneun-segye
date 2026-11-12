@@ -1,0 +1,171 @@
+:root {
+  color-scheme: dark;
+  font-family: "Geist", system-ui, sans-serif;
+  color: #f2f1ef;
+  background: #111214;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 2%, #25272a 0%, #111214 58%);
+}
+
+main {
+  width: min(100% - 2.5rem, 57rem);
+  margin: 0 auto;
+  padding: clamp(2rem, 7vh, 6rem) 0 3rem;
+  text-align: center;
+}
+
+h1 {
+  margin: 0;
+  font: 400 clamp(2.6rem, 7vw, 5.6rem)/1 "Instrument Serif", Georgia, serif;
+  letter-spacing: -0.055em;
+}
+
+#status {
+  min-height: 1.5em;
+  margin: 1.1rem 0 0;
+  color: #bdbfc4;
+  line-height: 1.5;
+}
+
+.transport {
+  display: flex;
+  justify-content: center;
+  gap: 0.65rem;
+  margin: 1.5rem 0 2rem;
+}
+
+button {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled { cursor: default; }
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.transport button {
+  min-height: 2.75rem;
+  padding: 0.55rem 1.05rem;
+  border: 1px solid #52545a;
+  border-radius: 2rem;
+  background: #202125;
+}
+
+.transport button:disabled { opacity: 0.5; }
+
+#play {
+  color: #17181a;
+  background: #e8e7e4;
+  border-color: transparent;
+  font-weight: 650;
+}
+
+.tracks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.65rem, 2vw, 1rem);
+}
+
+.track {
+  --accent: #ddd;
+  display: grid;
+  justify-items: center;
+  padding: 0.5rem 0.5rem 1.1rem;
+  border: 1px solid #323337;
+  border-radius: 1.25rem;
+  background: #191a1d;
+}
+
+.track[data-track="drum"] { --accent: #c1d3be; }
+.track[data-track="bass"] { --accent: #b8cce1; }
+.track[data-track="synth"] { --accent: #e0cdb5; }
+.track[data-track="vocal"] { --accent: #dfbfc6; }
+
+.track.is-on {
+  border-color: color-mix(in srgb, var(--accent), #323337 55%);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 13%, #191a1d), #191a1d 75%);
+}
+
+.toggle {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0.55rem 0.15rem 0.85rem;
+  border: 0;
+  border-radius: 0.85rem;
+  background: transparent;
+}
+
+.toggle:hover:not(:disabled) { background: #ffffff09; }
+
+.suit {
+  color: #97999f;
+  font: 400 clamp(2.75rem, 6vw, 4rem)/1 Georgia, "Segoe UI Symbol", serif;
+}
+
+.is-on .suit { color: var(--accent); }
+
+.name {
+  font-size: 0.86rem;
+  font-weight: 650;
+  letter-spacing: 0.11em;
+}
+
+.state {
+  min-width: 3rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid #44464d;
+  border-radius: 1rem;
+  color: #c0c1c6;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+}
+
+.is-on .state {
+  color: #161719;
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.level {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+}
+
+.volume {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 2.75rem;
+  height: clamp(6rem, 20vh, 10rem);
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: ns-resize;
+}
+
+.volume:disabled { opacity: 0.42; cursor: default; }
+
+.amount {
+  color: #bdbfc4;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.is-on .amount { color: var(--accent); }
+
+@media (max-width: 38rem) {
+  .tracks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .volume { height: 6rem; }
+}
