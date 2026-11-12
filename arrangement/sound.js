@@ -31,7 +31,8 @@ let master;
 let endsAt;
 let sessionTimer;
 const resultSeconds = 5;
-const fadeSeconds = 2;
+const screenFadeSeconds = 2;
+const audioFadeSeconds = 0.18;
 const audioSamples = new Float32Array(512);
 
 function publishMix() {
@@ -40,7 +41,7 @@ function publishMix() {
     phase,
     volumes: Object.fromEntries(tracks.map(track => [track.id, track.enabled ? track.volume : 0])),
     returnAt: phase === 'result' ? Date.now() + (endsAt - context.currentTime) * 1000 : null,
-    fadeDuration: fadeSeconds * 1000,
+    fadeDuration: screenFadeSeconds * 1000,
   });
 }
 
@@ -163,11 +164,12 @@ async function start(withOriginalMix = false) {
 
 function scheduleEnd(time) {
   endsAt = time;
-  const fadeAt = endsAt - fadeSeconds;
+  const audioEnd = endsAt - resultSeconds;
+  const fadeAt = Math.max(context.currentTime, audioEnd - audioFadeSeconds);
   master.gain.cancelScheduledValues(fadeAt);
   master.gain.setValueAtTime(1, fadeAt);
-  master.gain.linearRampToValueAtTime(0, endsAt);
-  for (const track of tracks) track.source.stop(endsAt);
+  master.gain.linearRampToValueAtTime(0, audioEnd);
+  for (const track of tracks) track.source.stop(audioEnd);
 }
 
 function showResult() {
@@ -230,9 +232,8 @@ enter.addEventListener('click', () => start());
 waitingOriginal.addEventListener('click', () => start(true));
 finish.addEventListener('click', () => {
   if (phase !== 'mixing') return;
-  const earlyEnd = context.currentTime + resultSeconds;
+  const earlyEnd = context.currentTime + audioFadeSeconds + resultSeconds;
   if (earlyEnd < endsAt) scheduleEnd(earlyEnd);
-  showResult();
 });
 document.addEventListener('visibilitychange', updateSession);
 
