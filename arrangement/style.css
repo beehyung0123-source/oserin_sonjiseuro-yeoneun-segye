@@ -124,6 +124,11 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   font-size: 0.82rem;
   font-weight: 650;
 }
+.mixer-controls { gap: 0.7rem; }
+.transport :is(#finish, #original, #waiting-original) {
+  min-height: 2.85rem;
+  min-width: 5.75rem;
+}
 .transport button:hover:not(:disabled) { border-color: #303639; }
 #enter, #playback {
   color: #f7f7f7;

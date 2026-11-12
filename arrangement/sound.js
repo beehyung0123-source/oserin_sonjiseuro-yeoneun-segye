@@ -17,6 +17,9 @@ const enter = document.querySelector('#enter');
 const waitingOriginal = document.querySelector('#waiting-original');
 const finish = document.querySelector('#finish');
 const original = document.querySelector('#original');
+const mixerHint = document.querySelector('#mixer-hint');
+const defaultMixerHint = mixerHint.textContent;
+const deckScene = mixer.querySelector('.deck-scene');
 const remainingTime = document.querySelector('#remaining');
 const trackList = document.querySelector('.tracks');
 const template = document.querySelector('#track-template');
@@ -45,6 +48,7 @@ let mixOffset = 0;
 let sessionPlayed = 0;
 let silentAt = 0;
 let defaultMixOnCue = false;
+let originalNoticeTimer;
 const transportFadeSeconds = 0.09;
 const resultSeconds = 5;
 const unlockMessage = '운영자는 Space 또는 Enter를 눌러 오디오를 켜 주세요.';
@@ -202,6 +206,7 @@ function stopMix(resetPosition = false) {
 }
 
 function setTurntableTransport(state) {
+  if (phase === 'mixing' && originalNoticeTimer !== undefined) updateOriginalMixNotice();
   wantsPlayback = state === 'needle-down' && phase === 'mixing';
   if (wantsPlayback) {
     startMix();
@@ -301,12 +306,15 @@ function startExperience(withOriginalMix = false) {
   }
   waiting.hidden = true;
   mixer.hidden = false;
+  clearOriginalMixNotice();
+  if (withOriginalMix) showOriginalMixNotice();
   updateSession();
   sessionTimer = setInterval(updateSession, 100);
 }
 
 function showResult() {
   phase = 'result';
+  clearOriginalMixNotice();
   setTurntableTransport('power-off');
   const audible = tracks.filter(track => track.enabled && track.volume > 0);
   resultTracks.replaceChildren(...audible.map(track => {
@@ -399,7 +407,32 @@ function playOriginalMix() {
   }
 }
 
-original.addEventListener('click', playOriginalMix);
+function updateOriginalMixNotice() {
+  const state = deckScene.dataset.state;
+  if (state === 'power-off') mixerHint.textContent = '원곡 선택됨 · POWER를 켜고 바늘 놓기';
+  else if (state === 'needle-up') mixerHint.textContent = '원곡 선택됨 · LP 홈에 바늘 놓기';
+  else mixerHint.textContent = '원곡 선택됨 · 4개 스템 ON';
+}
+
+function clearOriginalMixNotice() {
+  clearTimeout(originalNoticeTimer);
+  originalNoticeTimer = undefined;
+  mixerHint.textContent = defaultMixerHint;
+}
+
+function showOriginalMixNotice() {
+  clearTimeout(originalNoticeTimer);
+  updateOriginalMixNotice();
+  originalNoticeTimer = setTimeout(clearOriginalMixNotice, 4500);
+}
+
+function selectOriginalMix() {
+  if (phase !== 'mixing') return;
+  playOriginalMix();
+  showOriginalMixNotice();
+}
+
+original.addEventListener('click', selectOriginalMix);
 
 if (location.protocol === 'file:') {
   enter.disabled = true;
