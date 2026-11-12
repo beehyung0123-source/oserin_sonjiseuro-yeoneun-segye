@@ -189,7 +189,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   .vinyl { animation: none; }
 }
 
-.deck-scene {
+.deck-scene, .waiting-deck-scene {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -199,6 +199,11 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   container-type: size;
 }
 .deck-scene .vinyl { width: 72cqw; }
+.waiting-deck-scene .vinyl {
+  left: 49.3%;
+  top: 47.2%;
+  width: 70.5cqw;
+}
 .arm-bearing, .tonearm {
   position: absolute;
   left: var(--pivot-x);
