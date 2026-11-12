@@ -18,40 +18,17 @@ const waitingOriginal = document.querySelector('#waiting-original');
 const finish = document.querySelector('#finish');
 const original = document.querySelector('#original');
 const remainingTime = document.querySelector('#remaining');
-const openScreen = document.querySelector('#open-screen');
 const trackList = document.querySelector('.tracks');
 const template = document.querySelector('#track-template');
 
 let context;
 let buffers;
 let phase = 'waiting';
-let screenChannel;
-let analyser;
 let master;
 let endsAt;
 let sessionTimer;
 const resultSeconds = 5;
-const screenFadeSeconds = 2;
 const audioFadeSeconds = 0.18;
-const audioSamples = new Float32Array(512);
-
-function publishMix() {
-  screenChannel?.postMessage({
-    type: 'mix',
-    phase,
-    volumes: Object.fromEntries(tracks.map(track => [track.id, track.enabled ? track.volume : 0])),
-    returnAt: phase === 'result' ? Date.now() + (endsAt - context.currentTime) * 1000 : null,
-    fadeDuration: screenFadeSeconds * 1000,
-  });
-}
-
-function publishPulse() {
-  analyser.getFloatTimeDomainData(audioSamples);
-  let energy = 0;
-  for (const sample of audioSamples) energy += sample * sample;
-  const pulse = Math.min(1, Math.sqrt(energy / audioSamples.length) * 3);
-  screenChannel.postMessage({ type: 'pulse', pulse });
-}
 
 for (const track of tracks) {
   const card = template.content.firstElementChild.cloneNode(true);
@@ -71,12 +48,10 @@ for (const track of tracks) {
   track.toggle.addEventListener('click', () => {
     track.enabled = !track.enabled;
     updateTrack(track);
-    publishMix();
   });
   track.slider.addEventListener('input', () => {
     track.volume = track.slider.valueAsNumber;
     updateTrack(track);
-    publishMix();
   });
   trackList.append(card);
 }
@@ -118,8 +93,8 @@ async function start(withOriginalMix = false) {
 
     if (!master) {
       master = context.createGain();
-      analyser = context.createAnalyser();
-      analyser.fftSize = audioSamples.length;
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 512;
       master.connect(analyser).connect(context.destination);
     }
 
@@ -151,7 +126,6 @@ async function start(withOriginalMix = false) {
     mixer.hidden = false;
     original.focus();
     updateSession();
-    publishMix();
     sessionTimer = setInterval(updateSession, 100);
   } catch (error) {
     console.error(error);
@@ -187,7 +161,6 @@ function showResult() {
   mixer.hidden = true;
   result.hidden = false;
   resultTitle.focus();
-  publishMix();
 }
 
 function returnToWaiting() {
@@ -203,7 +176,6 @@ function returnToWaiting() {
   waitingStatus.textContent = '마우스로 소리를 조합해 보세요.';
   waiting.hidden = false;
   enter.focus();
-  publishMix();
 }
 
 function updateSession() {
@@ -224,7 +196,6 @@ function updateSession() {
       remainingTime.textContent = label;
       remainingTime.dateTime = `PT${seconds}S`;
     }
-    if (screenChannel) publishPulse();
   }
 }
 
@@ -236,6 +207,7 @@ finish.addEventListener('click', () => {
   if (earlyEnd < endsAt) scheduleEnd(earlyEnd);
 });
 document.addEventListener('visibilitychange', updateSession);
+window.addEventListener('pageshow', updateSession);
 
 original.addEventListener('click', () => {
   const now = context.currentTime;
@@ -244,38 +216,10 @@ original.addEventListener('click', () => {
     track.volume = 100;
     updateTrack(track, now);
   }
-  publishMix();
 });
 
 if (location.protocol === 'file:') {
   enter.disabled = true;
   waitingOriginal.disabled = true;
-  openScreen.hidden = true;
   waitingStatus.textContent = 'arrangement 폴더의 play-sound.cmd를 더블클릭해 열어 주세요.';
-} else {
-  const sessionKey = 'arrangement-screen-session';
-  const session = sessionStorage.getItem(sessionKey) ?? crypto.randomUUID();
-  sessionStorage.setItem(sessionKey, session);
-
-  openScreen.target = `arrangement-screen-${session}`;
-  const screenUrl = new URL(openScreen.href);
-  screenUrl.searchParams.set('session', session);
-  openScreen.href = screenUrl.href;
-  openScreen.addEventListener('click', event => {
-    if (window.open(openScreen.href, openScreen.target, 'popup,width=1100,height=650')) {
-      event.preventDefault();
-    }
-  });
-
-  screenChannel = new BroadcastChannel(openScreen.target);
-  screenChannel.addEventListener('message', event => {
-    if (event.data?.type === 'ready') publishMix();
-  });
-  window.addEventListener('pageshow', () => {
-    updateSession();
-    publishMix();
-  });
-  window.addEventListener('pagehide', () => {
-    screenChannel.postMessage({ type: 'mix', phase: 'waiting', volumes: {} });
-  });
 }

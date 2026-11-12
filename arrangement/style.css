@@ -13,21 +13,18 @@ body {
   background: radial-gradient(ellipse at 50% 2%, #25272a 0%, #111214 58%);
 }
 
-.open-screen {
-  position: absolute;
+.hand-cursor {
+  position: fixed;
   z-index: 1;
-  top: clamp(1.35rem, 3vw, 2.5rem);
-  right: clamp(1.35rem, 3vw, 2.5rem);
-  padding: 0.6rem 0.85rem;
-  border: 1px solid #ffffff29;
-  border-radius: 2rem;
-  color: #d4d4d8;
-  background: #111214;
-  font-size: 0.8rem;
-  text-decoration: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #15171a;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px #ffffff80;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
-
-.open-screen:hover { border-color: #a7a8ad; }
 
 .mixer {
   width: min(100% - 2.5rem, 57rem);
