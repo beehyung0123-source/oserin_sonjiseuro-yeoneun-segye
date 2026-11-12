@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="sound.js" defer></script>
   <script src="visuals.js" defer></script>
+  <script src="guidance.js" defer></script>
   <script type="module" src="hand-cursor.js"></script>
 </head>
 <body>
@@ -21,7 +22,8 @@
           <h1 id="waiting-title" lang="en">What’s<br>Missing?</h1>
           <p id="waiting-status" role="status">운영자는 Space 또는 Enter를 눌러 오디오를 켜 주세요.</p>
 
-          <p id="hand-ready" hidden>손이 인식되었습니다.</p>
+          <p id="hand-ready" class="visually-hidden" hidden>손이 인식되었습니다.</p>
+          <div id="waiting-guide-slot"></div>
           <div class="transport waiting-actions">
             <button id="enter" type="button" lang="en">START</button>
             <button id="waiting-original" type="button">원곡 듣기</button>
@@ -46,6 +48,7 @@
           <span>HAND TRACKING</span>
           <strong class="tracking-active">● ACTIVE</strong>
           <strong class="tracking-idle">○ STANDBY</strong>
+          <span id="dual-hand-hint" lang="en" hidden>USE BOTH HANDS</span>
         </div>
       </header>
 
@@ -60,6 +63,9 @@
               <span class="needle-tip"></span>
               <div id="cartridge"></div>
             </div>
+            <div id="deck-guide-slot"></div>
+            <div class="cue-guide" aria-hidden="true"></div>
+            <div class="needle-demo" aria-hidden="true"><span class="gesture-demo" data-demo="needle"><i></i><i></i></span></div>
             <div class="deck-controls">
               <button id="turntable-power" type="button" aria-pressed="false" lang="en">POWER</button>
               <output id="turntable-status" lang="en">POWER OFF</output>
@@ -67,6 +73,7 @@
           </div>
         </section>
         <section class="master-filter" aria-labelledby="master-filter-title">
+          <div id="filter-guide-slot"></div>
           <h2 id="master-filter-title" lang="en">MASTER FILTER</h2>
           <div class="filter-unit">
             <p id="master-filter-mode" class="filter-mode" lang="en">LPF / CUTOFF</p>
@@ -78,7 +85,7 @@
                      aria-valuetext="18.0 kHz">
             </div>
             <output class="filter-display" for="master-cutoff" aria-live="off" lang="en">FREQ: <span id="master-frequency" class="filter-frequency">18.0 kHz</span></output>
-            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중</strong></p>
+            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중 · ↑↓</strong></p>
           </div>
           <div class="filter-unit filter-unit-hpf">
             <p id="master-hpf-mode" class="filter-mode" lang="en">HPF / CUTOFF</p>
@@ -90,7 +97,7 @@
                      aria-valuetext="20 Hz">
             </div>
             <output class="filter-display" for="master-hpf-cutoff" aria-live="off" lang="en">FREQ: <span id="master-hpf-frequency" class="filter-frequency">20 Hz</span></output>
-            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중</strong></p>
+            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중 · ↑↓</strong></p>
           </div>
         </section>
         <section class="tracks" aria-label="소리 조작"></section>
@@ -107,8 +114,9 @@
         </div>
         <canvas class="signal-wave" width="480" height="64" aria-hidden="true"></canvas>
         <div class="usage">
+          <div id="mix-guide-slot"></div>
           <strong lang="en">STEM MIXER / 4-CHANNEL</strong>
-          <span>짧게 집기 ON/OFF · 세로 이동 볼륨</span>
+          <span class="quick-mix-hint">짧게 집기 ON/OFF · 세로 이동 볼륨</span>
           <span id="mixer-hint" role="status">POWER를 집고 카트리지를 LP 홈에 놓기</span>
         </div>
       </footer>
@@ -148,6 +156,15 @@
         </div>
         <output class="amount" aria-hidden="true">100%</output>
       </article>
+    </template>
+    <template id="visitor-guide-template">
+      <div class="visitor-guide" hidden>
+        <div class="visitor-guide-copy">
+          <strong class="guide-title" lang="en"></strong>
+          <span class="guide-detail"></span>
+        </div>
+        <span class="gesture-demo" aria-hidden="true"><i></i><i></i></span>
+      </div>
     </template>
   </main>
   <div class="hand-cursor" data-hand="Left" aria-hidden="true" hidden><span>L</span></div>

@@ -9,6 +9,7 @@ const files = new Map([
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
   ['/sound.js', ['sound.js', 'text/javascript; charset=utf-8']],
   ['/visuals.js', ['visuals.js', 'text/javascript; charset=utf-8']],
+  ['/guidance.js', ['guidance.js', 'text/javascript; charset=utf-8']],
   ['/turntable-plinth.webp', ['turntable-plinth.webp', 'image/webp']],
   ['/turntable-vinyl.webp', ['turntable-vinyl.webp', 'image/webp']],
   ['/turntable-plinth-clean.webp', ['turntable-plinth-clean.webp', 'image/webp']],
