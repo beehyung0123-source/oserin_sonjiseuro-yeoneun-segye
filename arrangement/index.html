@@ -68,16 +68,30 @@
         </section>
         <section class="master-filter" aria-labelledby="master-filter-title">
           <h2 id="master-filter-title" lang="en">MASTER FILTER</h2>
-          <p id="master-filter-mode" lang="en">LPF / CUTOFF</p>
-          <div class="filter-knob">
-            <span class="filter-scale" aria-hidden="true"></span>
-            <span class="filter-dial" aria-hidden="true"></span>
-            <input id="master-cutoff" type="range" min="0" max="1" step="0.001" value="1"
-                   aria-labelledby="master-filter-title master-filter-mode" aria-orientation="vertical"
-                   aria-valuetext="18.0 kHz">
+          <div class="filter-unit">
+            <p id="master-filter-mode" class="filter-mode" lang="en">LPF / CUTOFF</p>
+            <div class="filter-knob">
+              <span class="filter-scale" aria-hidden="true"></span>
+              <span class="filter-dial" aria-hidden="true"></span>
+              <input id="master-cutoff" class="filter-control" type="range" min="0" max="1" step="0.001" value="1"
+                     aria-labelledby="master-filter-title master-filter-mode" aria-orientation="vertical"
+                     aria-valuetext="18.0 kHz">
+            </div>
+            <output class="filter-display" for="master-cutoff" aria-live="off" lang="en">FREQ: <span id="master-frequency" class="filter-frequency">18.0 kHz</span></output>
+            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중</strong></p>
           </div>
-          <output class="filter-display" for="master-cutoff" aria-live="off" lang="en">FREQ: <span id="master-frequency">18.0 kHz</span></output>
-          <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중</strong></p>
+          <div class="filter-unit filter-unit-hpf">
+            <p id="master-hpf-mode" class="filter-mode" lang="en">HPF / CUTOFF</p>
+            <div class="filter-knob">
+              <span class="filter-scale" aria-hidden="true"></span>
+              <span class="filter-dial" aria-hidden="true"></span>
+              <input id="master-hpf-cutoff" class="filter-control" type="range" min="0" max="1" step="0.001" value="0"
+                     aria-labelledby="master-filter-title master-hpf-mode" aria-orientation="vertical"
+                     aria-valuetext="20 Hz">
+            </div>
+            <output class="filter-display" for="master-hpf-cutoff" aria-live="off" lang="en">FREQ: <span id="master-hpf-frequency" class="filter-frequency">20 Hz</span></output>
+            <p class="filter-hint"><span>집고 위아래로 이동</span><strong>조절 중</strong></p>
+          </div>
         </section>
         <section class="tracks" aria-label="소리 조작"></section>
       </div>

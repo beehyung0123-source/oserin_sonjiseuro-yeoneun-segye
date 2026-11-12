@@ -301,11 +301,10 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 }
 
 .master-filter {
-  --cutoff-angle: 135deg;
   display: grid;
-  align-content: center;
+  align-content: end;
   justify-items: center;
-  gap: 0.35rem;
+  gap: clamp(0.55rem, 1.6vh, 0.9rem);
   min-width: 0;
   padding: 0.65rem 0.3rem;
   border: 1px solid #929799;
@@ -322,7 +321,19 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   font-size: clamp(0.57rem, 0.82vw, 0.77rem);
 }
 .master-filter h2 { letter-spacing: 0.025em; white-space: nowrap; }
-#master-filter-mode { color: #41494c; }
+.filter-unit {
+  --cutoff-angle: 135deg;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+.filter-unit + .filter-unit {
+  border-top: 1px solid #91989b;
+  padding-top: 0.65rem;
+}
+.filter-unit-hpf { --cutoff-angle: -135deg; }
+.filter-mode { color: #41494c; }
 .filter-knob {
   position: relative;
   width: clamp(4.9rem, 7vw, 6.4rem);
@@ -375,7 +386,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   box-shadow: 1px 0 #fff9;
   transform: translateX(-50%);
 }
-#master-cutoff {
+.filter-control {
   position: absolute;
   inset: 0;
   width: 100%;

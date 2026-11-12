@@ -57,17 +57,17 @@ function selectCard(hand, card) {
 
 function releaseFilter(hand) {
   if (!hand.filterDrag) return;
-  owners.delete(masterFilterControl);
+  owners.delete(hand.filterDrag.filter.control);
   hand.filterDrag = null;
 }
 
-function grabFilter(hand) {
-  if (owners.has(masterFilterControl)) {
-    hand.blockedControl = masterFilterControl;
+function grabFilter(hand, filter) {
+  if (owners.has(filter.control)) {
+    hand.blockedControl = filter.control;
     return;
   }
-  owners.set(masterFilterControl, hand);
-  hand.filterDrag = { startY: hand.position.y, startPosition: masterFilterPosition };
+  owners.set(filter.control, hand);
+  hand.filterDrag = { filter, startY: hand.position.y, startPosition: filter.position };
   selectCard(hand, null);
 }
 
@@ -178,8 +178,11 @@ function matchHands({ landmarks, handedness, handednesses }) {
       return detection.side || !other.palm ? 0.28 : Infinity;
     }
     const distance = palmDistance(hand.palm, detection.palm);
+    // The stacked filter controls invite crossing paths. Keep a nearby,
+    // confidently identified hand on its own filter through the crossing.
+    const confidentFilter = hand.filterDrag && detection.side === hand.side && distance <= 0.20;
     if (hasGrab(hand) && (distance > 0.28
-        || ((!second || distance > 0.12) && other.palm
+        || (!confidentFilter && (!second || distance > 0.12) && other.palm
           && palmDistance(other.palm, detection.palm) + 0.04 < distance))) {
       return Infinity;
     }
@@ -240,7 +243,7 @@ function updateHand(hand, detection, timestamp) {
   const target = document.elementFromPoint(cursorX, cursorY);
   const holdingArm = turntable.heldBy(hand);
   const filterDrag = hand.filterDrag;
-  hand.pointedFilter = target === masterFilterControl && !hasGrab(hand);
+  hand.pointedFilter = hasGrab(hand) ? null : masterFilters.get(target);
   hand.pointedCartridge = target?.id === 'cartridge' && turntable.canGrab();
   const button = target?.closest('button');
   const card = target?.closest('.tracks .track') ?? null;
@@ -282,7 +285,7 @@ function updateHand(hand, detection, timestamp) {
         return;
       }
       if (hand.pinchFilter) {
-        grabFilter(hand);
+        grabFilter(hand, hand.pinchFilter);
         return;
       }
       if (hand.pinchCartridge) {
@@ -308,10 +311,10 @@ function updateHand(hand, detection, timestamp) {
 
   if (hand.drag?.dragging && !pinchChanged) adjustGrabbedVolume(hand.drag, hand.position.y);
   if (hand.filterDrag && !pinchChanged) {
-    const { startY, startPosition } = hand.filterDrag;
+    const { filter, startY, startPosition } = hand.filterDrag;
     const delta = startY - hand.position.y;
     const travel = Math.max(0, Math.abs(delta) - filterDeadZonePx / clientHeight);
-    setMasterFilterPosition(startPosition + Math.sign(delta) * travel / filterTravel);
+    setMasterFilterPosition(filter, startPosition + Math.sign(delta) * travel / filterTravel);
   }
 
   if (!hand.grabbedCard && !holdingArm && !filterDrag) {
@@ -329,8 +332,10 @@ function updateControls() {
     hand.cursor.classList.toggle('is-locked', owners.has(hand.blockedControl));
     hand.cursor.classList.toggle('is-grabbing', hasGrab(hand));
   }
-  masterFilterPanel.classList.toggle('is-filter-pointed', hands.some(hand => hand.pointedFilter));
-  masterFilterPanel.classList.toggle('is-filter-grabbed', owners.has(masterFilterControl));
+  for (const [control, filter] of masterFilters) {
+    filter.panel.classList.toggle('is-filter-pointed', hands.some(hand => hand.pointedFilter === filter));
+    filter.panel.classList.toggle('is-filter-grabbed', owners.has(control));
+  }
   turntable.pointAtCartridge(hands.some(hand => hand.pointedCartridge));
   const canStart = canStartExperience();
   handReady.hidden = !canStart || hands.every(hand => hand.cursor.hidden);
@@ -338,6 +343,11 @@ function updateControls() {
     button.classList.toggle('is-hand-pointed', hands.some(hand => hand.pointedButton === button));
   }
 }
+
+mixer.addEventListener('masterfiltersreset', () => {
+  hands.forEach(releaseFilter);
+  updateControls();
+});
 
 function stopTracking(active) {
   if (session !== active) return;
