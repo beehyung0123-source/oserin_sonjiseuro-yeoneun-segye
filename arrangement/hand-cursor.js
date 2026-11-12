@@ -34,7 +34,7 @@ const pinchActions = new Map([
   [document.querySelector('#original'), selectOriginalMix],
   [powerButton, turntable.togglePower],
 ]);
-const forgivingButtons = new Set([powerButton, finish, original, waitingOriginal]);
+const forgivingButtons = new Set([enter, powerButton, finish, original, waitingOriginal]);
 const handReady = document.querySelector('#hand-ready');
 // Keep the video off the DOM so the TV only shows the cursor.
 const video = document.createElement('video');

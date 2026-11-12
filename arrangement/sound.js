@@ -37,7 +37,7 @@ let context;
 let buffers;
 let phase = 'waiting';
 let audioReady = false;
-let activating;
+let loadingAudio = false;
 let sessionTimer;
 let resultUntil;
 let mixAnalyser;
@@ -51,8 +51,7 @@ let defaultMixOnCue = false;
 let originalNoticeTimer;
 const transportFadeSeconds = 0.09;
 const resultSeconds = 5;
-const startMessage = '시작하기 버튼을 눌러 체험을 시작하세요.';
-const readyMessage = '시작하기나 원곡 듣기에 검지 커서를 올리고 엄지와 검지를 붙이세요.';
+const startMessage = '시작하기를 누르거나 손으로 집어 주세요.';
 
 for (const [index, track] of tracks.entries()) {
   const card = template.content.firstElementChild.cloneNode(true);
@@ -228,74 +227,63 @@ async function loadBuffer(track) {
 }
 
 function canStartExperience() {
-  return audioReady && context.state === 'running' && phase === 'waiting';
+  return phase === 'waiting' && !loadingAudio && location.protocol !== 'file:';
 }
 
-async function activateAudio() {
-  if (activating) return;
+async function prepareAudio(fromClick) {
+  if (!context) {
+    context = new AudioContext();
+    context.addEventListener('statechange', startMix);
+  }
+  // A pinch can load the mixer while the browser is still blocking sound.
+  if (fromClick && context.state !== 'running') resumeAudioFromInput();
+  if (audioReady) return;
+
+  buffers ??= await Promise.all(tracks.map(loadBuffer));
+  if (buffers.some(buffer => buffer.length !== buffers[0].length)) {
+    throw new Error('네 음원의 길이가 같아야 함께 반복할 수 있습니다.');
+  }
+  const master = context.createGain();
+  let output = master;
+  for (const filter of masterFilters.values()) {
+    const node = context.createBiquadFilter();
+    node.type = filter.type;
+    node.Q.value = 0.707;
+    node.frequency.value = cutoffHz(filter);
+    filter.node = node;
+    output = output.connect(node);
+  }
+  mixAnalyser = context.createAnalyser();
+  mixAnalyser.fftSize = 512;
+  output.connect(mixAnalyser).connect(context.destination);
+  for (const track of tracks) {
+    track.gain = context.createGain();
+    track.gain.gain.value = 0;
+    track.analyser = context.createAnalyser();
+    track.analyser.fftSize = 512;
+    // Measure the audible stem after its gain, along its single output path.
+    track.gain.connect(track.analyser).connect(master);
+  }
+  audioReady = true;
+}
+
+async function startExperience(withOriginalMix = false, fromClick = false) {
+  if (!canStartExperience()) return;
+  loadingAudio = true;
   enter.disabled = true;
   waitingOriginal.disabled = true;
   waitingStatus.textContent = '음원을 불러오는 중입니다…';
-
-  activating = (async () => {
-    if (!context) {
-      context = new AudioContext();
-      context.addEventListener('statechange', () => {
-        startMix();
-        if (audioReady && phase === 'waiting') {
-          waitingStatus.textContent = canStartExperience() ? readyMessage : startMessage;
-        }
-      });
-    }
-    // Resume audio from the start button’s trusted click.
-    await context.resume();
-    if (context.state !== 'running') throw new Error('AudioContext: ' + context.state);
-    if (!audioReady) {
-      buffers ??= await Promise.all(tracks.map(loadBuffer));
-      if (buffers.some(buffer => buffer.length !== buffers[0].length)) {
-        throw new Error('네 음원의 길이가 같아야 함께 반복할 수 있습니다.');
-      }
-      const master = context.createGain();
-      let output = master;
-      for (const filter of masterFilters.values()) {
-        const node = context.createBiquadFilter();
-        node.type = filter.type;
-        node.Q.value = 0.707;
-        node.frequency.value = cutoffHz(filter);
-        filter.node = node;
-        output = output.connect(node);
-      }
-      mixAnalyser = context.createAnalyser();
-      mixAnalyser.fftSize = 512;
-      output.connect(mixAnalyser).connect(context.destination);
-      tracks.forEach(track => {
-        track.gain = context.createGain();
-        track.gain.gain.value = 0;
-        track.analyser = context.createAnalyser();
-        track.analyser.fftSize = 512;
-        // Measure the audible stem after its gain, along its single output path.
-        track.gain.connect(track.analyser).connect(master);
-      });
-      audioReady = true;
-    }
-    waitingStatus.textContent = readyMessage;
-    console.info('AudioContext:', context.state);
-  })();
-
   try {
-    await activating;
+    await prepareAudio(fromClick);
   } catch (error) {
     console.error(error);
-    waitingStatus.textContent = '오디오를 시작하지 못했습니다. 시작하기 버튼을 다시 눌러 주세요.';
+    waitingStatus.textContent = '오디오를 불러오지 못했습니다. 시작하기를 다시 시도해 주세요.';
+    return;
   } finally {
-    activating = undefined;
+    loadingAudio = false;
     enter.disabled = false;
     waitingOriginal.disabled = false;
   }
-}
-
-function startExperience(withOriginalMix = false) {
-  if (!canStartExperience()) return;
   phase = 'mixing';
   resetMasterFilters();
   sessionPlayed = 0;
@@ -342,7 +330,7 @@ function returnToWaiting() {
   clearInterval(sessionTimer);
   mixer.hidden = true;
   result.hidden = true;
-  waitingStatus.textContent = canStartExperience() ? readyMessage : startMessage;
+  waitingStatus.textContent = startMessage;
   waiting.hidden = false;
 }
 
@@ -373,13 +361,8 @@ function finishExperience() {
   if (phase === 'mixing') showResult();
 }
 
-async function startFromClick(withOriginalMix) {
-  if (!canStartExperience()) await activateAudio();
-  startExperience(withOriginalMix);
-}
-
-enter.addEventListener('click', () => startFromClick(false));
-waitingOriginal.addEventListener('click', () => startFromClick(true));
+enter.addEventListener('click', () => startExperience(false, true));
+waitingOriginal.addEventListener('click', () => startExperience(true, true));
 finish.addEventListener('click', finishExperience);
 
 document.addEventListener('keydown', event => {

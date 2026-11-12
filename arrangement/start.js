@@ -1,6 +1,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { homedir } = require('node:os');
 const { spawn } = require('node:child_process');
 
 const files = new Map([
@@ -50,13 +51,26 @@ const server = http.createServer((request, response) => {
   response.once('close', () => stream.destroy());
 });
 
-server.listen(0, '127.0.0.1', () => {
+const handsFree = process.argv.includes('--hands-free');
+const openBrowser = handsFree || process.argv.includes('--open');
+
+server.listen(handsFree ? 57000 : 0, '127.0.0.1', () => {
   const url = `http://127.0.0.1:${server.address().port}/`;
   console.log(`What’s Missing? ${url}`);
-  if (!process.argv.includes('--open')) return;
+  if (!openBrowser) return;
 
-  const chrome = path.join(process.env.ProgramFiles, 'Google', 'Chrome', 'Application', 'chrome.exe');
-  const browser = spawn(chrome, ['--new-window', url], { detached: true, stdio: 'ignore' });
-  browser.once('error', () => console.log('Open the address above in Chrome.'));
+  let chrome = 'google-chrome';
+  if (process.platform === 'darwin') chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  if (process.platform === 'win32') {
+    chrome = path.join(process.env.ProgramFiles || 'C:/Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');
+  }
+  const options = handsFree ? [
+    `--user-data-dir=${path.join(homedir(), '.whats-missing-chrome')}`,
+    '--autoplay-policy=no-user-gesture-required',
+    '--no-first-run',
+    '--no-default-browser-check',
+  ] : [];
+  const browser = spawn(chrome, [...options, '--new-window', url], { detached: true, stdio: 'ignore' });
+  browser.once('error', () => console.log('Chrome could not open automatically. Open the address above in Chrome.'));
   browser.unref();
 });
