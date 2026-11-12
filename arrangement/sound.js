@@ -20,6 +20,9 @@ const original = document.querySelector('#original');
 const remainingTime = document.querySelector('#remaining');
 const trackList = document.querySelector('.tracks');
 const template = document.querySelector('#track-template');
+const masterFilterPanel = document.querySelector('.master-filter');
+const masterFilterControl = document.querySelector('#master-cutoff');
+const masterFilterFrequency = document.querySelector('#master-frequency');
 
 let context;
 let buffers;
@@ -29,6 +32,11 @@ let activating;
 let sessionTimer;
 let resultUntil;
 let mixAnalyser;
+let masterLowPass;
+let masterFilterPosition = 1;
+const cutoffMinHz = 150;
+const cutoffMaxHz = 18000;
+const cutoffSmoothingSeconds = 0.025;
 let activeMix = null;
 let wantsPlayback = false;
 let mixOffset = 0;
@@ -98,6 +106,26 @@ function updateTrack(track, when = context.currentTime) {
   track.card.style.setProperty('--volume-percent', `${track.volume}%`);
   track.amount.textContent = `${track.volume}%`;
 }
+
+function setMasterFilterPosition(value, applyAt = 0) {
+  if (!Number.isFinite(value)) return;
+  const position = Math.round(Math.min(1, Math.max(0, value)) * 1000) / 1000;
+  if (position === masterFilterPosition) return;
+  masterFilterPosition = position;
+  const hz = cutoffMinHz * (cutoffMaxHz / cutoffMinHz) ** position;
+  if (masterLowPass) {
+    const when = Math.max(context.currentTime, applyAt);
+    masterLowPass.frequency.cancelScheduledValues(when);
+    masterLowPass.frequency.setTargetAtTime(hz, when, cutoffSmoothingSeconds);
+  }
+  const label = hz >= 1000 ? (hz / 1000).toFixed(1) + ' kHz' : Math.round(hz) + ' Hz';
+  masterFilterControl.value = position;
+  masterFilterControl.setAttribute('aria-valuetext', label);
+  masterFilterFrequency.textContent = label;
+  masterFilterPanel.style.setProperty('--cutoff-angle', (-135 + position * 270) + 'deg');
+}
+
+masterFilterControl.addEventListener('input', () => setMasterFilterPosition(masterFilterControl.valueAsNumber));
 
 function activeMixElapsed(now = context.currentTime) {
   return activeMix ? Math.max(0, now - activeMix.startAt) : 0;
@@ -203,9 +231,13 @@ async function activateAudio() {
         throw new Error('네 음원의 길이가 같아야 함께 반복할 수 있습니다.');
       }
       const master = context.createGain();
+      masterLowPass = context.createBiquadFilter();
+      masterLowPass.type = 'lowpass';
+      masterLowPass.Q.value = 0.707;
+      masterLowPass.frequency.value = cutoffMaxHz;
       mixAnalyser = context.createAnalyser();
       mixAnalyser.fftSize = 512;
-      master.connect(mixAnalyser).connect(context.destination);
+      master.connect(masterLowPass).connect(mixAnalyser).connect(context.destination);
       tracks.forEach(track => {
         track.gain = context.createGain();
         track.gain.gain.value = 0;
@@ -235,6 +267,7 @@ async function activateAudio() {
 function startExperience(withOriginalMix = false) {
   if (!canStartExperience()) return;
   phase = 'mixing';
+  setMasterFilterPosition(1);
   sessionPlayed = 0;
   defaultMixOnCue = !withOriginalMix;
   for (const track of tracks) {
@@ -250,6 +283,7 @@ function startExperience(withOriginalMix = false) {
 function showResult() {
   phase = 'result';
   setTurntableTransport('power-off');
+  setMasterFilterPosition(1, silentAt);
   const audible = tracks.filter(track => track.enabled && track.volume > 0);
   resultTracks.replaceChildren(...audible.map(track => {
     const item = resultTemplate.content.firstElementChild.cloneNode(true);

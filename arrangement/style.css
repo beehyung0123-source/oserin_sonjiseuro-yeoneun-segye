@@ -138,7 +138,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 
 .machine-body {
   display: grid;
-  grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+  grid-template-columns: minmax(0, 55fr) clamp(6.6rem, 8.5vw, 8.4rem) minmax(0, 45fr);
   gap: clamp(0.6rem, 1.4vw, 1.4rem);
   min-height: clamp(20rem, 68vh, 48rem);
   margin-block: clamp(0.65rem, 2vh, 1.25rem);
@@ -299,6 +299,115 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 @media (prefers-reduced-motion: reduce) {
   .tonearm, .arm-image, .needle-tip { transition: none; }
 }
+
+.master-filter {
+  --cutoff-angle: 135deg;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.65rem 0.3rem;
+  border: 1px solid #929799;
+  border-radius: 0.55rem;
+  background:
+    repeating-linear-gradient(0deg, #ffffff20 0 1px, transparent 1px 3px),
+    linear-gradient(100deg, #bfc3c4, #e4e6e6 28%, #d2d5d6 76%, #aeb4b7);
+  box-shadow: inset 0 1px #fff, 0 3px 6px #0003;
+  text-align: center;
+  font-family: var(--mono);
+}
+.master-filter h2, .master-filter p {
+  margin: 0;
+  font-size: clamp(0.57rem, 0.82vw, 0.77rem);
+}
+.master-filter h2 { letter-spacing: 0.025em; white-space: nowrap; }
+#master-filter-mode { color: #41494c; }
+.filter-knob {
+  position: relative;
+  width: clamp(4.9rem, 7vw, 6.4rem);
+  aspect-ratio: 1;
+  margin: 0.22rem 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, #a9afb1 0 48%, #d5d8d9 50% 64%, transparent 67%);
+}
+.filter-scale {
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 225deg, #40494d 0 1.6deg, transparent 1.6deg 9deg);
+  mask-image:
+    radial-gradient(circle, transparent 0 60%, #000 61% 69%, transparent 70%),
+    conic-gradient(from 225deg, #000 0 271deg, transparent 271deg);
+  mask-composite: intersect;
+  pointer-events: none;
+}
+.filter-dial {
+  position: absolute;
+  inset: 13%;
+  border: 1px solid #3d4346;
+  border-radius: 50%;
+  background: repeating-conic-gradient(#40474b 0deg 2.5deg, #899194 3deg 5deg, #626b70 6deg 8deg);
+  box-shadow: inset 0 0 0 1px #dfe1e288, 0 3px 5px #20242699;
+  transform: rotate(var(--cutoff-angle));
+  pointer-events: none;
+}
+.filter-dial::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 1px solid #9ba0a1;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle, #ffffff21 0 1px, #13191d10 1px 2px),
+    conic-gradient(from 40deg, #c6c9c9, #7e8588, #e0e2e2, #8b9294, #d6d9da, #c6c9c9);
+  box-shadow: inset 0 1px 2px #fff9, 0 1px 2px #15191e99;
+}
+.filter-dial::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  width: 3px;
+  height: 25%;
+  border-radius: 1px;
+  background: #252a2c;
+  box-shadow: 1px 0 #fff9;
+  transform: translateX(-50%);
+}
+#master-cutoff {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  cursor: ns-resize;
+}
+.filter-knob:hover, .filter-knob:has(:focus-visible), .is-filter-pointed .filter-knob {
+  outline: 2px solid #545e63;
+  outline-offset: 2px;
+}
+.is-filter-grabbed .filter-knob {
+  outline: 2px solid #292f32;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px #f4f5f5b8;
+}
+.filter-display {
+  padding: 0.28rem 0.24rem;
+  border: 1px solid #858d90;
+  border-radius: 0.2rem;
+  background: #f0f2f2;
+  box-shadow: inset 0 1px 2px #32383b27;
+  font-size: clamp(0.53rem, 0.78vw, 0.72rem);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.filter-hint { color: #41494c; }
+.filter-hint strong, .is-filter-grabbed .filter-hint span { display: none; }
+.is-filter-grabbed .filter-hint strong { display: inline; color: #23292b; }
 
 .tracks {
   display: grid;

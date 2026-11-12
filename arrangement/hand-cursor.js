@@ -12,6 +12,8 @@ const selectionDwellMs = 250;
 const trackingGraceMs = 300;
 const shortPinchMs = 350;
 const dragThresholdPx = 25;
+const filterTravel = 0.38; // Fraction of the screen height across the full cutoff range.
+const filterDeadZonePx = 6;
 const volumeTravel = 0.4; // Fraction of the screen height for a 0–100% adjustment.
 const hands = ['Left', 'Right'].map(side => ({
   side, cursor: document.querySelector(`[data-hand="${side}"]`),
@@ -53,7 +55,24 @@ function selectCard(hand, card) {
   }
 }
 
-function releaseCard(hand) {
+function releaseFilter(hand) {
+  if (!hand.filterDrag) return;
+  owners.delete(masterFilterControl);
+  hand.filterDrag = null;
+}
+
+function grabFilter(hand) {
+  if (owners.has(masterFilterControl)) {
+    hand.blockedControl = masterFilterControl;
+    return;
+  }
+  owners.set(masterFilterControl, hand);
+  hand.filterDrag = { startY: hand.position.y, startPosition: masterFilterPosition };
+  selectCard(hand, null);
+}
+
+function releaseControls(hand) {
+  releaseFilter(hand);
   const card = hand.grabbedCard;
   if (card) {
     owners.delete(card);
@@ -61,7 +80,7 @@ function releaseCard(hand) {
     card.querySelector('.grab-status').hidden = true;
   }
   hand.grabbedCard = null;
-  hand.blockedCard = null;
+  hand.blockedControl = null;
   hand.drag = null;
   hand.cursor.classList.remove('is-grabbing', 'is-locked');
 }
@@ -69,7 +88,7 @@ function releaseCard(hand) {
 function grabCard(hand, card, palm, timestamp) {
   if (!card) return;
   if (owners.has(card)) {
-    hand.blockedCard = card;
+    hand.blockedControl = card;
     return;
   }
   owners.set(card, hand);
@@ -113,6 +132,8 @@ function pauseHand(hand) {
   hand.pinchFrames = 0;
   hand.pointedButton = null;
   hand.pointedCartridge = false;
+  hand.pointedFilter = false;
+  releaseFilter(hand);
   if (turntable.heldBy(hand)) hand.armTrackingInterrupted = true;
   if (hand.drag) {
     hand.drag.interrupted = true;
@@ -123,7 +144,7 @@ function pauseHand(hand) {
 function resetHand(hand) {
   pauseHand(hand);
   turntable.cancel(hand);
-  releaseCard(hand);
+  releaseControls(hand);
   selectCard(hand, null);
   hand.position = undefined;
   hand.palm = undefined;
@@ -133,6 +154,7 @@ function resetHand(hand) {
 }
 
 const palmDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const hasGrab = hand => Boolean(hand.grabbedCard || hand.filterDrag || turntable.heldBy(hand));
 
 function matchHands({ landmarks, handedness, handednesses }) {
   const detections = landmarks.slice(0, 2).map((points, index) => {
@@ -140,8 +162,11 @@ function matchHands({ landmarks, handedness, handednesses }) {
     return { points, palm: points[9], side: category?.score >= 0.65 ? category.categoryName : null };
   });
   const [first, second] = detections;
-  if (second && hands.some(hand => hand.grabbedCard || turntable.heldBy(hand)) && palmDistance(first.palm, second.palm) < 0.065) {
-    return [null, null];
+  if (second && palmDistance(first.palm, second.palm) < 0.065) {
+    const movingStemOrArm = hands.some(hand => hand.grabbedCard || turntable.heldBy(hand));
+    const ambiguousFilter = hands.some(hand => hand.filterDrag)
+      && (!first.side || !second.side || first.side === second.side);
+    if (movingStemOrArm || ambiguousFilter) return [null, null];
   }
 
   function cost(hand, detection) {
@@ -153,7 +178,7 @@ function matchHands({ landmarks, handedness, handednesses }) {
       return detection.side || !other.palm ? 0.28 : Infinity;
     }
     const distance = palmDistance(hand.palm, detection.palm);
-    if ((hand.grabbedCard || turntable.heldBy(hand)) && (distance > 0.28
+    if (hasGrab(hand) && (distance > 0.28
         || ((!second || distance > 0.12) && other.palm
           && palmDistance(other.palm, detection.palm) + 0.04 < distance))) {
       return Infinity;
@@ -214,14 +239,17 @@ function updateHand(hand, detection, timestamp) {
   const cursorY = hand.position.y * clientHeight;
   const target = document.elementFromPoint(cursorX, cursorY);
   const holdingArm = turntable.heldBy(hand);
+  const filterDrag = hand.filterDrag;
+  hand.pointedFilter = target === masterFilterControl && !hasGrab(hand);
   hand.pointedCartridge = target?.id === 'cartridge' && turntable.canGrab();
   const button = target?.closest('button');
   const card = target?.closest('.tracks .track') ?? null;
-  const canPinchButton = !holdingArm && pinchActions.has(button) && !button.disabled
+  const canPinchButton = !hasGrab(hand) && pinchActions.has(button) && !button.disabled
     && (!mixer.hidden || canStartExperience());
   hand.pointedButton = canPinchButton ? button : null;
   const palmPixels = { x: palm.x * clientWidth, y: palm.y * clientHeight };
   const ratio = getPinchRatio(points);
+  if (filterDrag && !Number.isFinite(ratio)) releaseFilter(hand);
   if (holdingArm) {
     if (!Number.isFinite(ratio)) hand.armTrackingInterrupted = true;
     else if (ratio <= pinchStartRatio) hand.armTrackingInterrupted = false;
@@ -232,6 +260,7 @@ function updateHand(hand, detection, timestamp) {
   if (!opening && hand.pinchFrames === 1) {
     hand.pinchButton = hand.pointedButton;
     hand.pinchCartridge = hand.pointedCartridge;
+    hand.pinchFilter = hand.pointedFilter;
   }
   if (holdingArm && !hand.armTrackingInterrupted && (!pinchChanged || hand.pinchFrames === 1)) {
     turntable.move(hand, cursorX, cursorY);
@@ -252,6 +281,10 @@ function updateHand(hand, detection, timestamp) {
         action();
         return;
       }
+      if (hand.pinchFilter) {
+        grabFilter(hand);
+        return;
+      }
       if (hand.pinchCartridge) {
         if (turntable.grab(hand, cursorX, cursorY)) {
           hand.armTrackingInterrupted = false;
@@ -269,13 +302,19 @@ function updateHand(hand, detection, timestamp) {
       if (drag && !drag.dragging && !drag.interrupted && timestamp - drag.startedAt <= shortPinchMs) {
         toggleStem(drag.stemId);
       }
-      releaseCard(hand);
+      releaseControls(hand);
     }
   }
 
   if (hand.drag?.dragging && !pinchChanged) adjustGrabbedVolume(hand.drag, hand.position.y);
+  if (hand.filterDrag && !pinchChanged) {
+    const { startY, startPosition } = hand.filterDrag;
+    const delta = startY - hand.position.y;
+    const travel = Math.max(0, Math.abs(delta) - filterDeadZonePx / clientHeight);
+    setMasterFilterPosition(startPosition + Math.sign(delta) * travel / filterTravel);
+  }
 
-  if (!hand.grabbedCard && !holdingArm) {
+  if (!hand.grabbedCard && !holdingArm && !filterDrag) {
     if (card !== hand.candidate) {
       hand.candidate = card;
       hand.candidateSince = timestamp;
@@ -287,9 +326,11 @@ function updateHand(hand, detection, timestamp) {
 
 function updateControls() {
   for (const hand of hands) {
-    hand.cursor.classList.toggle('is-locked', owners.has(hand.blockedCard));
-    hand.cursor.classList.toggle('is-grabbing', Boolean(hand.grabbedCard) || turntable.heldBy(hand));
+    hand.cursor.classList.toggle('is-locked', owners.has(hand.blockedControl));
+    hand.cursor.classList.toggle('is-grabbing', hasGrab(hand));
   }
+  masterFilterPanel.classList.toggle('is-filter-pointed', hands.some(hand => hand.pointedFilter));
+  masterFilterPanel.classList.toggle('is-filter-grabbed', owners.has(masterFilterControl));
   turntable.pointAtCartridge(hands.some(hand => hand.pointedCartridge));
   const canStart = canStartExperience();
   handReady.hidden = !canStart || hands.every(hand => hand.cursor.hidden);
