@@ -26,6 +26,11 @@ body {
   pointer-events: none;
 }
 
+.hand-cursor[data-track] {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent);
+}
+
 .mixer {
   width: min(100% - 2.5rem, 57rem);
   margin: 0 auto;
@@ -199,6 +204,15 @@ input:focus-visible {
   border-color: color-mix(in srgb, var(--accent), #323337 55%);
   background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 13%, #191a1d), #191a1d 75%);
 }
+
+.track.is-hand-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, #191a1d);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.track.is-hand-selected .suit,
+.track.is-hand-selected .name { color: var(--accent); }
 
 .toggle {
   display: grid;
