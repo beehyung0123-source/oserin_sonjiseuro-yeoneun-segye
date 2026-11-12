@@ -16,14 +16,32 @@ body {
 .hand-cursor {
   position: fixed;
   z-index: 1;
-  width: 18px;
-  height: 18px;
+  width: 23px;
+  height: 23px;
   border: 2px solid #15171a;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 8px #ffffff80;
   transform: translate(-50%, -50%);
   pointer-events: none;
+  text-align: center;
+  color: #15171a;
+  font: 700 0.7rem/19px system-ui, sans-serif;
+}
+
+.hand-cursor[data-hand="Left"] { outline: 2px solid #86dbff; }
+.hand-cursor[data-hand="Right"] { outline: 2px dashed #ffd18e; }
+
+.hand-cursor.is-locked::after {
+  content: "잠김";
+  position: absolute;
+  left: calc(100% + 0.45rem);
+  top: 0;
+  padding: 0 0.35rem;
+  border-radius: 0.25rem;
+  background: #202125;
+  color: #fff;
+  white-space: nowrap;
 }
 
 .hand-cursor[data-track] {
@@ -35,6 +53,8 @@ body {
   border-radius: 4px;
   transform: translate(-50%, -50%) rotate(45deg);
 }
+
+.hand-cursor.is-grabbing span { display: inline-block; transform: rotate(-45deg); }
 
 #hand-ready[hidden] { display: block; visibility: hidden; }
 
