@@ -669,18 +669,18 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   gap: 0.23rem;
   min-width: 0;
   padding: 0.45rem 0.55rem;
-  border: 1px solid #747c80;
-  border-inline-start: 3px solid #2a3338;
-  background: #edf0f0f0;
   color: #192126;
   text-align: start;
-  box-shadow: 0 2px 5px #15191c25;
   animation: guide-enter 180ms ease-out both;
 }
 .visitor-guide[hidden] { display: none; }
 .guide-title { font: 650 clamp(0.68rem, 1.1vw, 0.98rem)/1.23 var(--mono); }
 .guide-detail { font-size: clamp(0.66rem, 0.92vw, 0.82rem); line-height: 1.35; }
-#waiting-guide-slot .visitor-guide { width: min(100%, 25rem); justify-self: center; }
+#waiting-guide-slot .visitor-guide {
+  width: min(100%, 25rem);
+  justify-self: center;
+  text-align: center;
+}
 #waiting-guide-slot .guide-title { font-size: clamp(0.9rem, 1.6vw, 1.2rem); }
 #waiting-guide-slot:has([data-stage="start"]:not([hidden])) ~ .waiting-actions #enter,
 .mixer[data-guide-step="power"] #turntable-power {
@@ -706,6 +706,8 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   left: 4%;
   top: 6%;
   width: min(78%, 25rem);
+  border-radius: 0.35rem;
+  background: #eef0f0f2;
 }
 #deck-guide-slot :is([data-stage="power"], [data-stage="raise"]) {
   top: auto;
