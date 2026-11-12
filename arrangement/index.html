@@ -6,22 +6,24 @@
   <title>What’s Missing?</title>
   <link rel="stylesheet" href="style.css">
   <script src="sound.js" defer></script>
+  <script src="visuals.js" defer></script>
+  <script type="module" src="hand-cursor.js"></script>
 </head>
 <body>
-  <a id="open-screen" class="open-screen" href="screen.html" target="arrangement-screen">후면 스크린 열기</a>
   <main>
     <section id="waiting" class="waiting" aria-labelledby="waiting-title">
       <div class="waiting-content">
         <h1 id="waiting-title" lang="en">What’s<br>Missing?</h1>
-        <p id="waiting-status" role="status">마우스로 소리를 조합해 보세요.</p>
+        <p id="waiting-status" role="status">운영자는 Space 또는 Enter를 눌러 오디오를 켜 주세요.</p>
         <div class="waiting-suits" aria-hidden="true">
           <span class="suit">♣︎</span>
           <span class="suit">♠︎</span>
           <span class="suit">♦︎</span>
           <span class="suit">♥︎</span>
         </div>
+        <p id="hand-ready" hidden>손이 인식되었습니다.</p>
         <div class="transport waiting-actions">
-          <button id="enter" type="button">시작</button>
+          <button id="enter" type="button" lang="en">START</button>
           <button id="waiting-original" type="button">원곡 듣기</button>
         </div>
       </div>
@@ -30,13 +32,13 @@
     <section id="mixer" class="mixer" aria-labelledby="mixer-title" hidden>
       <header>
         <h1 id="mixer-title" lang="en">What’s Missing?</h1>
-        <p>문양을 눌러 소리를 켜고, 막대로 볼륨을 조절하세요.</p>
+        <p>카드를 짧게 집었다 놓으면 소리가 켜지거나 꺼집니다. 집은 채 위아래로 움직이면 볼륨이 바뀝니다. FINISH를 1.5초 동안 가리키면 체험이 끝납니다.</p>
       </header>
 
       <div class="transport mixer-controls">
         <span class="countdown">남은 시간 <time id="remaining" role="timer"></time></span>
         <button id="original" type="button">원곡 듣기</button>
-        <button id="finish" type="button">마치기</button>
+        <button id="finish" type="button" lang="en">FINISH</button>
       </div>
 
       <section class="tracks" aria-label="소리 조작"></section>
@@ -59,17 +61,22 @@
     </template>
     <template id="track-template">
       <article class="track">
+        <span class="grab-status" lang="en" hidden>GRABBED</span>
         <button class="toggle" type="button" aria-pressed="false" disabled>
-          <span class="suit" aria-hidden="true"></span>
           <span class="name" lang="en"></span>
           <span class="state" aria-hidden="true">OFF</span>
+          <canvas class="stem-visual" aria-hidden="true"></canvas>
         </button>
         <div class="level">
+          <span class="level-limit" aria-hidden="true">100</span>
           <input class="volume" type="range" min="0" max="100" value="100" aria-orientation="vertical" disabled>
+          <span class="level-limit" aria-hidden="true">0</span>
           <output class="amount" aria-hidden="true">100%</output>
         </div>
       </article>
     </template>
   </main>
+  <div class="hand-cursor" data-hand="Left" aria-hidden="true" hidden><span>L</span></div>
+  <div class="hand-cursor" data-hand="Right" aria-hidden="true" hidden><span>R</span></div>
 </body>
 </html>

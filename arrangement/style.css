@@ -13,27 +13,65 @@ body {
   background: radial-gradient(ellipse at 50% 2%, #25272a 0%, #111214 58%);
 }
 
-.open-screen {
-  position: absolute;
+.hand-cursor {
+  position: fixed;
   z-index: 1;
-  top: clamp(1.35rem, 3vw, 2.5rem);
-  right: clamp(1.35rem, 3vw, 2.5rem);
-  padding: 0.6rem 0.85rem;
-  border: 1px solid #ffffff29;
-  border-radius: 2rem;
-  color: #d4d4d8;
-  background: #111214;
-  font-size: 0.8rem;
-  text-decoration: none;
+  width: 23px;
+  height: 23px;
+  border: 2px solid #15171a;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px #ffffff80;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  text-align: center;
+  color: #15171a;
+  font: 700 0.7rem/19px system-ui, sans-serif;
 }
 
-.open-screen:hover { border-color: #a7a8ad; }
+.hand-cursor[data-hand="Left"] { outline: 2px solid #86dbff; }
+.hand-cursor[data-hand="Right"] { outline: 2px dashed #ffd18e; }
+
+.hand-cursor.is-locked::after {
+  content: "잠김";
+  position: absolute;
+  left: calc(100% + 0.45rem);
+  top: 0;
+  padding: 0 0.35rem;
+  border-radius: 0.25rem;
+  background: #202125;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.hand-cursor[data-track] {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent);
+}
+
+.hand-cursor.is-grabbing {
+  border-radius: 4px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.hand-cursor.is-grabbing span { display: inline-block; transform: rotate(-45deg); }
+
+#hand-ready[hidden] { display: block; visibility: hidden; }
+
+#finish {
+  background-image: linear-gradient(to right, #ffffff30 var(--dwell-progress, 0%), transparent 0);
+}
 
 .mixer {
-  width: min(100% - 2.5rem, 57rem);
+  width: min(100% - 2.5rem, 82rem);
   margin: 0 auto;
-  padding: clamp(2rem, 7vh, 6rem) 0 3rem;
+  padding: clamp(0.9rem, 3vh, 2rem) 0 1.25rem;
   text-align: center;
+}
+
+#enter.is-hand-pointed {
+  outline: 3px solid #bfe884;
+  outline-offset: 4px;
 }
 
 h1 {
@@ -42,8 +80,11 @@ h1 {
   letter-spacing: -0.055em;
 }
 
+.mixer h1 { font-size: clamp(2.1rem, 5vh, 4.25rem); }
+
 .mixer header p {
-  margin: 1.1rem 0 0;
+  margin: 0.55rem 0 0;
+  font-size: clamp(0.8rem, 1.7vh, 1rem);
   color: #bdbfc4;
   line-height: 1.5;
 }
@@ -172,49 +213,99 @@ input:focus-visible {
 #enter {
   min-width: 5.4rem;
   color: #17181a;
-  background: #e8e7e4;
+  background-color: #e8e7e4;
   border-color: transparent;
   font-weight: 650;
 }
 
 .tracks {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(0.65rem, 2vw, 1rem);
 }
 
 .track {
   --accent: #ddd;
+  position: relative;
   display: grid;
-  justify-items: center;
-  padding: 0.5rem 0.5rem 1.1rem;
+  grid-template-columns: minmax(0, 1fr) clamp(2.8rem, 6vw, 4.25rem);
+  gap: 0.35rem;
+  min-width: 0;
+  padding: clamp(0.4rem, 1.1vh, 0.8rem);
   border: 1px solid #323337;
   border-radius: 1.25rem;
   background: #191a1d;
 }
 
-[data-track="drum"] { --accent: #c1d3be; --sprite: 0% 0%; }
-[data-track="bass"] { --accent: #b8cce1; --sprite: 100% 0%; }
-[data-track="synth"] { --accent: #e0cdb5; --sprite: 0% 100%; }
-[data-track="vocal"] { --accent: #dfbfc6; --sprite: 100% 100%; }
+[data-track="drum"] { --accent: #bfe884; --sprite: 0% 0%; }
+[data-track="bass"] { --accent: #79d9f5; --sprite: 100% 0%; }
+[data-track="synth"] { --accent: #c6a8ff; --sprite: 0% 100%; }
+[data-track="vocal"] { --accent: #ffab9c; --sprite: 100% 100%; }
 
 .track.is-on {
   border-color: color-mix(in srgb, var(--accent), #323337 55%);
   background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 13%, #191a1d), #191a1d 75%);
 }
 
+.track.is-hand-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, #191a1d);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.track.is-hand-selected .name { color: var(--accent); }
+
+.track.is-hand-grabbed {
+  box-shadow: inset 0 0 0 2px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.grab-status {
+  position: absolute;
+  z-index: 1;
+  bottom: 0.8rem;
+  left: 1rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.3rem;
+  background: var(--accent);
+  color: #161719;
+  font-size: 0.62rem;
+  font-weight: 650;
+  pointer-events: none;
+}
+
 .toggle {
   display: grid;
-  justify-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   width: 100%;
-  gap: 0.5rem;
-  padding: 0.55rem 0.15rem 0.85rem;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem 0;
   border: 0;
   border-radius: 0.85rem;
   background: transparent;
 }
 
 .toggle:hover:not(:disabled) { background: #ffffff09; }
+
+.track .name {
+  justify-self: start;
+  font-size: clamp(0.77rem, 1.9vw, 1.5rem);
+}
+
+.stem-visual {
+  display: block;
+  grid-column: 1 / -1;
+  width: 100%;
+  height: clamp(3rem, 17vh, 13rem);
+  opacity: 0.45;
+  transition: opacity 160ms ease;
+}
+
+.is-on .stem-visual { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stem-visual { transition: none; }
+}
 
 .suit {
   color: #97999f;
@@ -247,21 +338,42 @@ input:focus-visible {
 
 .level {
   display: grid;
+  grid-template-rows: auto minmax(2.25rem, 1fr) auto auto;
   justify-items: center;
-  gap: 0.55rem;
+  gap: 0.18rem;
+  padding: 0.3rem 0.15rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: #ffffff08;
+}
+
+.level-limit {
+  color: #bdbfc4;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .volume {
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 2.75rem;
-  height: clamp(6rem, 20vh, 10rem);
+  width: 1.7rem;
+  height: 100%;
+  min-height: 0;
   margin: 0;
   accent-color: var(--accent);
   cursor: ns-resize;
 }
 
 .volume:disabled { opacity: 0.42; cursor: default; }
+
+.is-hand-grabbed .volume { opacity: 1; }
+
+.is-hand-grabbed .level {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, #191a1d);
+}
+
+.is-hand-grabbed .amount { color: var(--accent); font-weight: 700; }
 
 .amount {
   color: #bdbfc4;
@@ -332,7 +444,7 @@ input:focus-visible {
 #result-empty { color: #bdbfc4; }
 
 @media (max-width: 38rem) {
-  .mixer { padding-top: 4.5rem; }
-  .tracks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .volume { height: 6rem; }
+  .mixer { width: calc(100% - 1rem); }
+  .track .state { min-width: 0; padding-inline: 0.35rem; }
+  .level { padding-inline: 0.25rem; }
 }
