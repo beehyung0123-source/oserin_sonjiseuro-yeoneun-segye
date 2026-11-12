@@ -28,12 +28,17 @@ let audioReady = false;
 let activating;
 let endsAt;
 let sessionTimer;
+let resultUntil;
+let mixAnalyser;
+let mixStartedAt;
+let transportChanging = false;
 const resultSeconds = 5;
 const readyMessage = '검지 커서를 START 위에 두고 엄지와 검지를 붙여 시작하세요.';
 
-for (const track of tracks) {
+for (const [index, track] of tracks.entries()) {
   const card = template.content.firstElementChild.cloneNode(true);
   card.dataset.track = track.id;
+  card.querySelector('.channel-number').textContent = `CH.${String(index + 1).padStart(2, '0')}`;
   card.querySelector('.name').textContent = track.name.toUpperCase();
 
   track.card = card;
@@ -114,8 +119,11 @@ async function activateAudio() {
         throw new Error('네 음원의 길이가 같아야 함께 반복할 수 있습니다.');
       }
       const master = context.createGain();
-      master.connect(context.destination);
+      mixAnalyser = context.createAnalyser();
+      mixAnalyser.fftSize = 512;
+      master.connect(mixAnalyser).connect(context.destination);
       const startTime = context.currentTime + 0.06;
+      mixStartedAt = startTime;
       tracks.forEach((track, index) => {
         track.source = context.createBufferSource();
         track.source.buffer = buffers[index];
@@ -177,7 +185,8 @@ function showResult() {
     track.volume = 100;
     updateTrack(track);
   }
-  endsAt = context.currentTime + resultSeconds;
+  resultUntil = performance.now() + resultSeconds * 1000;
+  if (context.state === 'suspended') context.resume().catch(console.warn);
   mixer.hidden = true;
   result.hidden = false;
   resultTitle.focus();
@@ -194,11 +203,14 @@ function returnToWaiting() {
 
 function updateSession() {
   if (phase === 'waiting') return;
+  if (phase === 'result') {
+    if (performance.now() >= resultUntil) returnToWaiting();
+    return;
+  }
 
   const left = endsAt - context.currentTime;
   if (left <= 0) {
-    if (phase === 'mixing') showResult();
-    else returnToWaiting();
+    showResult();
     return;
   }
 
@@ -215,6 +227,21 @@ function updateSession() {
 function finishExperience() {
   if (phase === 'mixing') showResult();
 }
+
+document.querySelector('#playback').addEventListener('click', async () => {
+  if (phase !== 'mixing' || transportChanging) return;
+  transportChanging = true;
+  try {
+    if (context.state === 'running') await context.suspend();
+    else await context.resume();
+    // A hand-triggered FINISH can occur while suspension is in flight.
+    if (phase !== 'mixing' && context.state === 'suspended') await context.resume();
+  } catch (error) {
+    console.warn('재생 상태를 변경할 수 없습니다.', error);
+  } finally {
+    transportChanging = false;
+  }
+});
 
 async function startFromClick(withOriginalMix) {
   if (!canStartExperience()) await activateAudio();

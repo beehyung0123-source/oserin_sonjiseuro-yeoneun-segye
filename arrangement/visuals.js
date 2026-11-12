@@ -1,6 +1,12 @@
 (() => {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const transportState = mixer.querySelector('.play-state');
+  const playbackButton = document.querySelector('#playback');
+  const playbackTime = document.querySelector('#playback-time');
+  const overview = mixer.querySelector('.signal-overview').getContext('2d');
+  const waveform = mixer.querySelector('.signal-wave').getContext('2d');
+  const spectrum = new Uint8Array(256);
+  const mixSamples = new Float32Array(512);
   const segments = 16;
   const panels = tracks.map(track => {
     const canvas = track.card.querySelector('.stem-visual');
@@ -30,8 +36,46 @@
     const step = height / segments;
     pen.clearRect(0, 0, width, height);
     for (let index = 0; index < segments; index++) {
-      pen.fillStyle = index < lit ? (index >= 13 ? '#ff9fcd' : color) : '#263133';
+      pen.fillStyle = index < lit ? color : '#b9bfc2';
       pen.fillRect(2, height - (index + 1) * step + 2, width - 4, step - 3);
+    }
+  }
+
+  function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainder = Math.floor(seconds % 60);
+    return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+  }
+
+  function drawMix(playing) {
+    if (playing) {
+      mixAnalyser.getByteFrequencyData(spectrum);
+      mixAnalyser.getFloatTimeDomainData(mixSamples);
+    } else {
+      spectrum.fill(0);
+      mixSamples.fill(0);
+    }
+    if (overview) {
+      const { width, height } = overview.canvas;
+      overview.clearRect(0, 0, width, height);
+      overview.fillStyle = '#25292b';
+      for (let index = 0; index < 48; index++) {
+        const bar = 1 + spectrum[index * 2] / 255 * (height - 4);
+        overview.fillRect(index * width / 48, height - bar, 2, bar);
+      }
+    }
+    if (waveform) {
+      const { width, height } = waveform.canvas;
+      waveform.clearRect(0, 0, width, height);
+      waveform.strokeStyle = '#25292b';
+      waveform.beginPath();
+      for (let index = 0; index < mixSamples.length; index += 2) {
+        const x = index / (mixSamples.length - 2) * width;
+        const y = height / 2 - Math.max(-1, Math.min(1, mixSamples[index] * 2)) * height * 0.46;
+        if (index === 0) waveform.moveTo(x, y);
+        else waveform.lineTo(x, y);
+      }
+      waveform.stroke();
     }
   }
 
@@ -44,6 +88,13 @@
       mixer.classList.toggle('is-playing', playing);
       const label = playing ? 'PLAY' : 'PAUSE';
       if (transportState.textContent !== label) transportState.textContent = label;
+      const action = playing ? 'PAUSE' : 'PLAY';
+      if (playbackButton.textContent !== action) playbackButton.textContent = action;
+      const duration = buffers[0].duration;
+      const position = Math.max(0, context.currentTime - mixStartedAt) % duration;
+      const timeLabel = `${formatTime(position)} / ${formatTime(duration)}`;
+      if (playbackTime.textContent !== timeLabel) playbackTime.textContent = timeLabel;
+      drawMix(playing);
       panels.forEach(draw);
     }
     frame = requestAnimationFrame(render);

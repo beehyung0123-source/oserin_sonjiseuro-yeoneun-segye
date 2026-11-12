@@ -9,7 +9,8 @@ const files = new Map([
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
   ['/sound.js', ['sound.js', 'text/javascript; charset=utf-8']],
   ['/visuals.js', ['visuals.js', 'text/javascript; charset=utf-8']],
-  ['/audio-machine.webp', ['audio-machine.webp', 'image/webp']],
+  ['/turntable-plinth.webp', ['turntable-plinth.webp', 'image/webp']],
+  ['/turntable-vinyl.webp', ['turntable-vinyl.webp', 'image/webp']],
   ['/hand-cursor.js', ['hand-cursor.js', 'text/javascript; charset=utf-8']],
 ]);
 for (const id of ['drum', 'bass', 'synth', 'vocal']) {

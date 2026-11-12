@@ -13,7 +13,10 @@
   <main>
     <section id="waiting" class="waiting" aria-labelledby="waiting-title">
       <div class="waiting-content">
-        <div class="tape-deck" aria-hidden="true"><img src="audio-machine.webp" alt="" width="1122" height="1402"></div>
+        <div class="tape-deck" aria-hidden="true">
+          <img class="deck-body" src="turntable-plinth.webp" alt="">
+          <img class="vinyl" src="turntable-vinyl.webp" alt="">
+        </div>
         <div class="waiting-panel">
           <h1 id="waiting-title" lang="en">What’s<br>Missing?</h1>
           <p id="waiting-status" role="status">운영자는 Space 또는 Enter를 눌러 오디오를 켜 주세요.</p>
@@ -29,23 +32,46 @@
 
     <section id="mixer" class="mixer" aria-labelledby="mixer-title" hidden>
       <header class="machine-header">
-        <h1 id="mixer-title" lang="en">What’s Missing?</h1>
-        <div class="transport mixer-controls">
-          <span class="play-state" lang="en">PLAY</span>
-          <span class="countdown"><time id="remaining" role="timer" aria-label="남은 시간"></time></span>
-          <button id="original" type="button">원곡 듣기</button>
-          <button id="finish" type="button" lang="en">FINISH</button>
+        <div class="machine-brand" lang="en">
+          <h1 id="mixer-title">What’s Missing?</h1>
+          <span>Interactive audio system</span>
+        </div>
+        <div class="track-info" lang="en">
+          <span>TRACK 01</span>
+          <strong>What’s Missing? / Stem mix</strong>
+          <span>BPM — <span aria-hidden="true">│</span> LEFT <time id="remaining" role="timer" aria-label="체험 남은 시간"></time></span>
+        </div>
+        <canvas class="signal-overview" width="240" height="56" aria-hidden="true"></canvas>
+        <div class="tracking" lang="en">
+          <span>HAND TRACKING</span>
+          <strong class="tracking-active">● ACTIVE</strong>
+          <strong class="tracking-idle">○ STANDBY</strong>
         </div>
       </header>
 
       <div class="machine-body">
-        <div class="tape-deck" aria-hidden="true"><img src="audio-machine.webp" alt="" width="1122" height="1402"></div>
+        <div class="tape-deck" aria-hidden="true">
+          <img class="deck-body" src="turntable-plinth.webp" alt="">
+          <img class="vinyl" src="turntable-vinyl.webp" alt="">
+        </div>
         <section class="tracks" aria-label="소리 조작"></section>
       </div>
       <footer class="machine-footer">
-        <span>짧게 집기 <b>ON/OFF</b></span>
-        <span>집은 채 위아래로 <b>볼륨</b></span>
-        <span><b>FINISH</b> 1.5초 가리키기</span>
+        <div class="transport mixer-controls">
+          <button id="playback" type="button" lang="en">PAUSE</button>
+          <button id="finish" type="button" lang="en">FINISH</button>
+          <button id="original" type="button">원곡 듣기</button>
+        </div>
+        <div class="playback-info" lang="en">
+          <span class="play-state">PLAY</span>
+          <output id="playback-time">00:00 / 00:00</output>
+        </div>
+        <canvas class="signal-wave" width="480" height="64" aria-hidden="true"></canvas>
+        <div class="usage">
+          <strong lang="en">STEM MIXER / 4-CHANNEL</strong>
+          <span>짧게 집기 ON/OFF · 세로 이동 볼륨</span>
+          <span>FINISH를 1.5초 가리켜 종료</span>
+        </div>
       </footer>
     </section>
 
@@ -68,6 +94,7 @@
       <article class="track">
         <span class="grab-status" lang="en" hidden>GRABBED</span>
         <button class="toggle" type="button" aria-pressed="false" disabled>
+          <span class="channel-number" aria-hidden="true"></span>
           <span class="name" lang="en"></span>
           <span class="state" aria-hidden="true">OFF</span>
         </button>
@@ -75,6 +102,7 @@
           <canvas class="stem-visual" width="24" height="160" aria-hidden="true"></canvas>
           <div class="level">
             <span class="level-limit" aria-hidden="true">100</span>
+            <span class="fader-scale" aria-hidden="true"><i>90</i><i>80</i><i>70</i><i>60</i><i>50</i><i>40</i><i>30</i><i>20</i><i>10</i></span>
             <input class="volume" type="range" min="0" max="100" value="100" aria-orientation="vertical" disabled>
             <span class="level-limit" aria-hidden="true">0</span>
           </div>
