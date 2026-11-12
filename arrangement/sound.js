@@ -33,7 +33,7 @@ let mixAnalyser;
 let mixStartedAt;
 let transportChanging = false;
 const resultSeconds = 5;
-const readyMessage = '검지 커서를 START 위에 두고 엄지와 검지를 붙여 시작하세요.';
+const readyMessage = 'START나 원곡 듣기에 검지 커서를 올리고 엄지와 검지를 붙이세요.';
 
 for (const [index, track] of tracks.entries()) {
   const card = template.content.firstElementChild.cloneNode(true);

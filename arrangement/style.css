@@ -125,14 +125,13 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   font-weight: 650;
 }
 .transport button:hover:not(:disabled) { border-color: #303639; }
-#original, #waiting-original { background-image: linear-gradient(to right, #42494d40 var(--dwell-progress, 0%), transparent 0); }
 #enter, #playback {
   color: #f7f7f7;
   background-color: #272a2b;
   box-shadow: inset 0 1px 0 #ffffff38, 0 2px 3px #0004;
   min-width: 4.2rem;
 }
-:is(#enter, #finish).is-hand-pointed { outline: 3px solid #555e63; outline-offset: 4px; }
+.transport .is-hand-pointed { outline: 3px solid #555e63; outline-offset: 4px; }
 .play-state { font-weight: 650; }
 .play-state::before { content: "○ "; }
 .is-playing .play-state::before { content: "● "; }
