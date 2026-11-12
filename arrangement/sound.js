@@ -24,11 +24,12 @@ const template = document.querySelector('#track-template');
 let context;
 let buffers;
 let phase = 'waiting';
-let master;
+let audioReady = false;
+let activating;
 let endsAt;
 let sessionTimer;
 const resultSeconds = 5;
-const audioFadeSeconds = 0.18;
+const readyMessage = '손으로 START를 1초 동안 가리켜 주세요.';
 
 for (const track of tracks) {
   const card = template.content.firstElementChild.cloneNode(true);
@@ -46,13 +47,20 @@ for (const track of tracks) {
   track.slider.setAttribute('aria-label', `${track.name} 볼륨`);
 
   track.toggle.addEventListener('click', () => {
-    track.enabled = !track.enabled;
-    updateTrack(track);
+    toggleStem(track.id);
   });
   track.slider.addEventListener('input', () => {
     setStemVolume(track.id, track.slider.valueAsNumber);
   });
   trackList.append(card);
+}
+
+function toggleStem(id) {
+  if (phase !== 'mixing') return;
+  const track = tracks.find(track => track.id === id);
+  if (!track) return;
+  track.enabled = !track.enabled;
+  updateTrack(track);
 }
 
 function setStemVolume(id, volume) {
@@ -73,7 +81,7 @@ function updateTrack(track, when = context.currentTime) {
   track.card.classList.toggle('is-on', track.enabled);
   track.toggle.disabled = phase !== 'mixing';
   track.toggle.setAttribute('aria-pressed', String(track.enabled));
-  track.state.textContent = track.enabled ? 'ON' : 'OFF';
+  track.state.textContent = track.enabled ? (track.volume === 0 ? 'ON · 0%' : 'ON') : 'OFF';
   track.slider.disabled = phase !== 'mixing' || !track.enabled;
   track.slider.value = track.volume;
   track.card.style.setProperty('--volume-percent', `${track.volume}%`);
@@ -86,73 +94,68 @@ async function loadBuffer(track) {
   return context.decodeAudioData(await response.arrayBuffer());
 }
 
-async function start(withOriginalMix = false) {
+function canStartExperience() {
+  return audioReady && context.state === 'running' && phase === 'waiting';
+}
+
+async function activateAudio() {
+  if (activating) return;
   enter.disabled = true;
   waitingOriginal.disabled = true;
   waitingStatus.textContent = '음원을 불러오는 중입니다…';
 
-  try {
+  activating = (async () => {
     context ??= new AudioContext();
+    // Called directly from a trusted keyboard or mouse event.
     await context.resume();
-    buffers ??= await Promise.all(tracks.map(loadBuffer));
-    if (buffers.some(buffer => buffer.length !== buffers[0].length)) {
-      waitingStatus.textContent = '네 음원의 길이가 같아야 함께 반복할 수 있습니다.';
-      return;
+    if (context.state !== 'running') throw new Error('AudioContext: ' + context.state);
+    if (!audioReady) {
+      buffers ??= await Promise.all(tracks.map(loadBuffer));
+      if (buffers.some(buffer => buffer.length !== buffers[0].length)) {
+        throw new Error('네 음원의 길이가 같아야 함께 반복할 수 있습니다.');
+      }
+      const master = context.createGain();
+      master.connect(context.destination);
+      const startTime = context.currentTime + 0.06;
+      tracks.forEach((track, index) => {
+        track.source = context.createBufferSource();
+        track.source.buffer = buffers[index];
+        track.source.loop = true;
+        track.gain = context.createGain();
+        track.gain.gain.value = 0;
+        track.source.connect(track.gain).connect(master);
+        track.source.start(startTime);
+      });
+      audioReady = true;
     }
+    waitingStatus.textContent = readyMessage;
+    console.info('AudioContext:', context.state);
+  })();
 
-    if (!master) {
-      master = context.createGain();
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 512;
-      master.connect(analyser).connect(context.destination);
-    }
-
-    tracks.forEach((track, index) => {
-      track.source = context.createBufferSource();
-      track.source.buffer = buffers[index];
-      track.source.loop = true;
-      track.gain = context.createGain();
-      track.gain.gain.value = 0;
-      const { source, gain } = track;
-      source.connect(gain).connect(master);
-      source.onended = () => {
-        source.disconnect();
-        gain.disconnect();
-      };
-    });
-
-    const startTime = context.currentTime + 0.06;
-    phase = 'mixing';
-    for (const track of tracks) {
-      track.enabled = withOriginalMix;
-      track.source.start(startTime);
-      updateTrack(track);
-    }
-
-    master.gain.setValueAtTime(1, context.currentTime);
-    scheduleEnd(startTime + buffers[0].duration * 2);
-    waiting.hidden = true;
-    mixer.hidden = false;
-    original.focus();
-    updateSession();
-    sessionTimer = setInterval(updateSession, 100);
+  try {
+    await activating;
   } catch (error) {
     console.error(error);
-    waitingStatus.textContent = '음원을 열지 못했습니다. 다시 시도해 주세요.';
+    waitingStatus.textContent = '오디오를 시작하지 못했습니다. Space 또는 Enter로 다시 시도해 주세요.';
   } finally {
+    activating = undefined;
     enter.disabled = false;
     waitingOriginal.disabled = false;
   }
 }
 
-function scheduleEnd(time) {
-  endsAt = time;
-  const audioEnd = endsAt - resultSeconds;
-  const fadeAt = Math.max(context.currentTime, audioEnd - audioFadeSeconds);
-  master.gain.cancelScheduledValues(fadeAt);
-  master.gain.setValueAtTime(1, fadeAt);
-  master.gain.linearRampToValueAtTime(0, audioEnd);
-  for (const track of tracks) track.source.stop(audioEnd);
+function startExperience(withOriginalMix = false) {
+  if (!canStartExperience()) return;
+  phase = 'mixing';
+  for (const track of tracks) {
+    track.enabled = withOriginalMix || track.id === 'drum';
+    updateTrack(track);
+  }
+  endsAt = context.currentTime + buffers[0].duration * 2;
+  waiting.hidden = true;
+  mixer.hidden = false;
+  updateSession();
+  sessionTimer = setInterval(updateSession, 100);
 }
 
 function showResult() {
@@ -167,6 +170,12 @@ function showResult() {
   }));
   resultTracks.hidden = audible.length === 0;
   resultEmpty.hidden = audible.length > 0;
+  for (const track of tracks) {
+    track.enabled = false;
+    track.volume = 100;
+    updateTrack(track);
+  }
+  endsAt = context.currentTime + resultSeconds;
   mixer.hidden = true;
   result.hidden = false;
   resultTitle.focus();
@@ -175,16 +184,10 @@ function showResult() {
 function returnToWaiting() {
   phase = 'waiting';
   clearInterval(sessionTimer);
-  for (const track of tracks) {
-    track.enabled = false;
-    track.volume = 100;
-    updateTrack(track);
-  }
   mixer.hidden = true;
   result.hidden = true;
-  waitingStatus.textContent = '마우스로 소리를 조합해 보세요.';
+  waitingStatus.textContent = readyMessage;
   waiting.hidden = false;
-  enter.focus();
 }
 
 function updateSession() {
@@ -192,13 +195,12 @@ function updateSession() {
 
   const left = endsAt - context.currentTime;
   if (left <= 0) {
-    returnToWaiting();
-  } else if (phase === 'mixing') {
-    if (left <= resultSeconds) {
-      showResult();
-      return;
-    }
+    if (phase === 'mixing') showResult();
+    else returnToWaiting();
+    return;
+  }
 
+  if (phase === 'mixing') {
     const seconds = Math.min(Math.ceil(left), Math.ceil(buffers[0].duration * 2));
     const label = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
     if (remainingTime.textContent !== label) {
@@ -208,12 +210,24 @@ function updateSession() {
   }
 }
 
-enter.addEventListener('click', () => start());
-waitingOriginal.addEventListener('click', () => start(true));
-finish.addEventListener('click', () => {
-  if (phase !== 'mixing') return;
-  const earlyEnd = context.currentTime + audioFadeSeconds + resultSeconds;
-  if (earlyEnd < endsAt) scheduleEnd(earlyEnd);
+function finishExperience() {
+  if (phase === 'mixing') showResult();
+}
+
+async function startFromClick(withOriginalMix) {
+  if (!canStartExperience()) await activateAudio();
+  startExperience(withOriginalMix);
+}
+
+enter.addEventListener('click', () => startFromClick(false));
+waitingOriginal.addEventListener('click', () => startFromClick(true));
+finish.addEventListener('click', finishExperience);
+
+document.addEventListener('keydown', event => {
+  if (!event.isTrusted || location.protocol === 'file:' || phase !== 'waiting' || canStartExperience()
+      || event.repeat || !['Space', 'Enter'].includes(event.code)) return;
+  event.preventDefault();
+  activateAudio();
 });
 document.addEventListener('visibilitychange', updateSession);
 window.addEventListener('pageshow', updateSession);
@@ -230,5 +244,5 @@ original.addEventListener('click', () => {
 if (location.protocol === 'file:') {
   enter.disabled = true;
   waitingOriginal.disabled = true;
-  waitingStatus.textContent = 'arrangement 폴더의 play-sound.cmd를 더블클릭해 열어 주세요.';
+  waitingStatus.textContent = '웹 주소에서 앱을 열어 주세요.';
 }

@@ -36,6 +36,12 @@ body {
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
+#hand-ready[hidden] { display: block; visibility: hidden; }
+
+#enter, #finish {
+  background-image: linear-gradient(to right, #ffffff30 var(--dwell-progress, 0%), transparent 0);
+}
+
 .mixer {
   width: min(100% - 2.5rem, 57rem);
   margin: 0 auto;
