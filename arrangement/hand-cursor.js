@@ -4,23 +4,22 @@ const visionPackage = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10
 const modelUrl = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const indexTip = 8;
 const thumbTip = 4;
-const pinchStartRatio = 0.25;
-const pinchReleaseRatio = 0.40;
-const pinchConfirmationFrames = 3;
+const pinchStartRatio = 0.28;
+const pinchReleaseRatio = 0.42;
+const pinchConfirmMs = 70;
+const releaseConfirmMs = 70;
 const controlPinchStartRatio = 0.34;
-const controlPinchFrames = 2;
-const buttonHitSlopPx = 14;
-const smoothingMs = 75;
+const buttonHitSlopPx = 24;
 const selectionDwellMs = 120;
 const trackingGraceMs = 300;
 const shortPinchMs = 350;
-const stemHitSlopPx = 10;
+const stemHitSlopPx = 18;
 const filterTravel = 0.38; // Fraction of the screen height across the full cutoff range.
 const filterDeadZonePx = 6;
 const volumeTravel = 0.4; // Fraction of the screen height for a 0–100% adjustment.
 const hands = ['Left', 'Right'].map(side => ({
   side, cursor: document.querySelector(`[data-hand="${side}"]`),
-  lastSeen: -Infinity, pinchState: 'open', pinchFrames: 0,
+  lastSeen: -Infinity, pinchState: 'awaiting-open', pinchFrames: 0,
 }));
 const mixer = document.querySelector('#mixer');
 const stemCards = [...mixer.querySelectorAll('.tracks .track')];
@@ -36,6 +35,7 @@ const pinchActions = new Map([
 ]);
 const forgivingButtons = new Set([enter, powerButton, finish, original, waitingOriginal]);
 const handReady = document.querySelector('#hand-ready');
+const cartridge = document.querySelector('#cartridge');
 // Keep the video off the DOM so the TV only shows the cursor.
 const video = document.createElement('video');
 video.muted = true;
@@ -75,7 +75,7 @@ function grabFilter(hand, filter) {
     return;
   }
   owners.set(filter.control, hand);
-  hand.filterDrag = { filter, startY: hand.position.y, startPosition: filter.position };
+  hand.filterDrag = { filter, startY: hand.palmY, startPosition: filter.position };
   selectCard(hand, null);
 }
 
@@ -136,21 +136,51 @@ function updateStemDrag(hand, viewportHeight) {
 }
 
 function getPinchRatio(hand) {
+  const indices = [0, 4, 5, 8, 9, 17];
+  if (!indices.every(i => Number.isFinite(hand?.[i]?.x) && Number.isFinite(hand?.[i]?.y))
+      || !video.videoHeight) return NaN;
   const aspect = video.videoWidth / video.videoHeight;
   const distance = (a, b) => Math.hypot((hand[a].x - hand[b].x) * aspect, hand[a].y - hand[b].y);
-  // Average the palm width and length to compensate for distance from the camera.
   const palmSize = (distance(5, 17) + distance(0, 9)) / 2;
-  return palmSize > 0 ? distance(thumbTip, indexTip) / palmSize : NaN;
+  // Reject very small palm images to avoid acting on unstable fingertip detail.
+  if (palmSize * video.videoHeight < 12) return NaN;
+  // Keep the tested image-space ratio; thresholds are calibrated to this metric.
+  return distance(thumbTip, indexTip) / palmSize;
+}
+
+function smoothPosition(previous, next, elapsed) {
+  if (!previous) return next;
+  const distance = Math.hypot(next.x - previous.x, next.y - previous.y);
+  if (distance < 0.0015) return previous;
+  // Stronger smoothing at rest, faster response during deliberate movement.
+  const smoothingMs = 100 - 65 * Math.min(1, distance / 0.06);
+  const weight = 1 - Math.exp(-Math.min(elapsed, 100) / smoothingMs);
+  return { x: previous.x + (next.x - previous.x) * weight,
+    y: previous.y + (next.y - previous.y) * weight };
+}
+
+function confirmPinch(hand, changing, timestamp, opening) {
+  if (!changing) {
+    hand.pinchFrames = 0;
+    hand.pinchSince = undefined;
+    return false;
+  }
+  if (!hand.pinchFrames) hand.pinchSince = timestamp;
+  hand.pinchFrames++;
+  return hand.pinchFrames >= 2
+    && timestamp - hand.pinchSince >= (opening ? releaseConfirmMs : pinchConfirmMs);
 }
 
 function pauseHand(hand) {
   hand.candidate = null;
   hand.pinchFrames = 0;
+  hand.pinchSince = undefined;
   hand.lastPinchRatio = undefined;
   hand.pointedButton = null;
   hand.pointedCartridge = false;
   hand.pointedFilter = false;
   releaseFilter(hand);
+  if (!hand.grabbedCard && !turntable.heldBy(hand)) hand.pinchState = 'awaiting-open';
   if (turntable.heldBy(hand)) hand.armTrackingInterrupted = true;
   if (hand.drag) {
     hand.drag.interrupted = true;
@@ -241,6 +271,22 @@ function distanceToControl(control, x, y) {
   return Math.hypot(dx, dy);
 }
 
+function hitPadding(pixels) {
+  return pixels * Math.max(0.8, Math.min(2, document.documentElement.clientHeight / 1080));
+}
+
+function findPrecisionControl(target, x, y) {
+  if (mixer.hidden) return null;
+  const controls = [...masterFilters.keys(), ...(turntable.canGrab() ? [cartridge] : [])];
+  const exact = controls.find(control => control === target || control.contains(target));
+  if (exact) return exact;
+  if (target?.closest('button, input, .track')) return null;
+  const nearby = controls.filter(control => control.getClientRects().length
+    && distanceToControl(control, x, y) <= hitPadding(22));
+  // Overlapping expanded regions stay neutral rather than grabbing a neighbour.
+  return nearby.length === 1 ? nearby[0] : null;
+}
+
 function findPinchButton(target, x, y) {
   const exact = target?.closest('button');
   if (exact) return pinchActions.has(exact) && !exact.disabled ? exact : null;
@@ -249,7 +295,7 @@ function findPinchButton(target, x, y) {
   let hit = null;
   for (const button of forgivingButtons) {
     if (button.disabled || !button.getClientRects().length) continue;
-    if (distanceToControl(button, x, y) > buttonHitSlopPx) continue;
+    if (distanceToControl(button, x, y) > hitPadding(buttonHitSlopPx)) continue;
     if (hit) return null; // Keep the gap between adjacent buttons neutral.
     hit = button;
   }
@@ -260,7 +306,7 @@ function findStemCard(target, x, y) {
   const card = target?.closest('.tracks .track');
   if (card) return card;
   if (mixer.hidden || target?.closest('button, input, .filter-knob, #cartridge')) return null;
-  const nearby = stemCards.filter(stem => distanceToControl(stem, x, y) <= stemHitSlopPx);
+  const nearby = stemCards.filter(stem => distanceToControl(stem, x, y) <= hitPadding(stemHitSlopPx));
   return nearby.length === 1 ? nearby[0] : null;
 }
 
@@ -272,12 +318,16 @@ function updateHand(hand, detection, timestamp) {
 
   const { points, palm } = detection;
   const tip = points[indexTip];
+  if (![tip.x, tip.y, palm.x, palm.y].every(Number.isFinite)) {
+    pauseHand(hand);
+    return;
+  }
   const x = clamp(1 - tip.x);
   const y = clamp(tip.y);
-  const weight = 1 - Math.exp(-(timestamp - hand.lastSeen) / smoothingMs);
-  hand.position = hand.position && !hand.drag?.rebase
-    ? { x: hand.position.x + (x - hand.position.x) * weight, y: hand.position.y + (y - hand.position.y) * weight }
-    : { x, y };
+  const elapsed = timestamp - hand.lastSeen;
+  if (elapsed >= trackingGraceMs) pauseHand(hand);
+  hand.position = smoothPosition(hand.drag?.rebase ? null : hand.position, { x, y }, elapsed);
+  const weight = 1 - Math.exp(-Math.min(elapsed, 100) / 100);
   hand.lastSeen = timestamp;
   hand.palm = palm;
   hand.palmY = hand.palmY === undefined || hand.drag?.rebase
@@ -292,11 +342,12 @@ function updateHand(hand, detection, timestamp) {
   const target = document.elementFromPoint(Math.min(cursorX, clientWidth - 1), Math.min(cursorY, clientHeight - 1));
   const holdingArm = turntable.heldBy(hand);
   const filterDrag = hand.filterDrag;
-  hand.pointedFilter = hasGrab(hand) ? null : masterFilters.get(target);
-  hand.pointedCartridge = target?.id === 'cartridge' && turntable.canGrab();
+  const precisionControl = hasGrab(hand) ? null : findPrecisionControl(target, cursorX, cursorY);
+  hand.pointedFilter = masterFilters.get(precisionControl);
+  hand.pointedCartridge = precisionControl === cartridge && turntable.canGrab();
   const card = findStemCard(target, cursorX, cursorY);
   const canPinchButton = !hasGrab(hand) && (!mixer.hidden || canStartExperience());
-  hand.pointedButton = canPinchButton ? findPinchButton(target, cursorX, cursorY) : null;
+  hand.pointedButton = canPinchButton && !precisionControl ? findPinchButton(target, cursorX, cursorY) : null;
   const ratio = getPinchRatio(points);
   if (filterDrag && !Number.isFinite(ratio)) releaseFilter(hand);
   if (holdingArm) {
@@ -312,7 +363,7 @@ function updateHand(hand, detection, timestamp) {
   const closeRatio = forgivingPinch ? controlPinchStartRatio : pinchStartRatio;
   const pinchChanged = opening ? ratio >= pinchReleaseRatio : ratio <= closeRatio;
   hand.lastPinchRatio = ratio;
-  hand.pinchFrames = pinchChanged ? hand.pinchFrames + 1 : 0;
+  const confirmed = confirmPinch(hand, pinchChanged, timestamp, opening);
   if (!opening && hand.pinchFrames === 1) {
     hand.pinchButton = forgivingPinch || !forgivingButtons.has(hand.pointedButton) ? hand.pointedButton : null;
     hand.pinchCard = card;
@@ -324,7 +375,7 @@ function updateHand(hand, detection, timestamp) {
   }
 
   const drag = hand.drag;
-  if (hand.pinchFrames >= (forgivingPinch ? controlPinchFrames : pinchConfirmationFrames)) {
+  if (confirmed) {
     hand.pinchFrames = 0;
     hand.candidate = null;
     if (!opening) {
@@ -350,7 +401,7 @@ function updateHand(hand, detection, timestamp) {
       hand.pinchState = 'open';
       if (holdingArm) {
         if (hand.armTrackingInterrupted) turntable.cancel(hand);
-        else turntable.release(hand, x * clientWidth, y * clientHeight);
+        else turntable.release(hand, cursorX, cursorY);
       }
       if (drag && !drag.dragging && !drag.interrupted && timestamp - drag.startedAt <= shortPinchMs) {
         toggleStem(drag.stemId);
@@ -362,7 +413,7 @@ function updateHand(hand, detection, timestamp) {
   if (hand.drag && !pinchChanged && Number.isFinite(ratio)) updateStemDrag(hand, clientHeight);
   if (hand.filterDrag && !pinchChanged) {
     const { filter, startY, startPosition } = hand.filterDrag;
-    const delta = startY - hand.position.y;
+    const delta = startY - hand.palmY;
     const travel = Math.max(0, Math.abs(delta) - filterDeadZonePx / clientHeight);
     setMasterFilterPosition(filter, startPosition + Math.sign(delta) * travel / filterTravel);
   }
@@ -440,8 +491,9 @@ async function startTracking() {
       audio: false,
       video: {
         facingMode: { ideal: 'user' },
-        width: { ideal: 640 },
-        height: { ideal: 480 },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 },
       },
     });
     if (session !== active) {

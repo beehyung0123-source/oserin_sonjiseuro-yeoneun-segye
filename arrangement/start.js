@@ -54,8 +54,8 @@ const server = http.createServer((request, response) => {
 });
 
 const host = '127.0.0.1';
-const preferredPort = 4174;
-const profileRoot = path.join(process.env.LOCALAPPDATA || os.homedir(), 'WhatsMissingExhibit');
+const preferredPort = 4184;
+const profileRoot = path.join(process.env.LOCALAPPDATA || os.homedir(), 'WhatsMissingHandTrackingDev');
 const exhibitId = createHash('sha256').update(`${profileRoot}\0${__dirname}`.toLowerCase()).digest('hex').slice(0, 24);
 const profile = path.join(profileRoot, exhibitId);
 const controlPipe = `\\\\.\\pipe\\whats-missing-${exhibitId}`;
@@ -174,7 +174,8 @@ function startExhibit() {
     console.log('Use the exhibit stop file to close this window and Chrome.');
     browser = spawn(chrome, [
       `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
-      '--disable-background-mode', '--start-maximized', `--app=${url}`,
+      '--disable-background-mode', '--autoplay-policy=no-user-gesture-required',
+      '--start-maximized', '--new-window', url,
     ], { stdio: 'ignore' });
     browser.once('error', error => {
       console.error('Could not open exhibit Chrome:', error.message);

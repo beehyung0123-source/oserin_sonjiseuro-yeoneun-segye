@@ -1,0 +1,59 @@
+WHAT’S MISSING? — 손 인식 개선용 독립 작업 폴더
+
+기존 전시
+- 저장소: beehyung0123-source/oserin_sonjiseuro-yeoneun-segye
+- GitHub Pages: gh-pages 브랜치, 루트(/), Deploy from a branch
+- 기준 커밋: ed3afa214a86f41d97988502c3a257a65070e1d2
+- 공개 주소: https://beehyung0123-source.github.io/oserin_sonjiseuro-yeoneun-segye/arrangement/
+- 상위 폴더의 기존 소스, 전시용, 전시용1 패키지는 기존 버전입니다.
+
+개선 버전
+- 브랜치: codex/exhibition-hand-tracking (로컬 브랜치)
+- 작업 폴더: hand-tracking-dev (독립 Git worktree)
+- 이 폴더에서만 수정했습니다. 원격 push, 병합, Pages 설정 변경은 하지 않습니다.
+- 탭 제목에 ‘손 인식 개선 테스트’를 표시해 기존 화면과 구분합니다.
+
+로컬 실행
+1. 이 폴더의 ‘개선버전시작.cmd’를 더블클릭합니다.
+   설치된 Node.js와 Chrome을 사용합니다. 이 PC에는 둘 다 설치되어 있습니다.
+2. http://127.0.0.1:4184/ 에서 화면이 열립니다. 첫 실행 시 카메라를 허용합니다.
+3. 마칠 때 ‘개선버전종료.cmd’를 더블클릭합니다.
+   개발용 Chrome과 서버만 종료합니다.
+- 인터넷 연결이 필요합니다(기존과 동일하게 MediaPipe와 글꼴을 불러옵니다).
+- 기존 전시의 4174 포트와 다른 4184 포트, 별도 개발용 Chrome 프로필을 사용합니다.
+- 다른 개발 서버가 4184를 사용 중이면 먼저 그 서버를 종료합니다.
+
+손 조작 변경
+- 영상 가로세로 비율과 손바닥 너비·길이를 이용하는 기존 거리 비율을 유지합니다.
+- 너무 작거나 잘못된 손 좌표는 Pinch 동작에 사용하지 않습니다.
+- 카메라 영상은 최대 30fps, 1280×720을 우선 요청합니다(장치가 지원하는 값 사용).
+- Pinch를 70ms 이상, 최소 2번의 영상 감지로 확인합니다. PC 속도별 프레임 수 차이를 줄입니다.
+- 집기와 놓기의 거리 기준을 분리하고, 손이 새로 들어오거나 추적을 잃었을 때는 한 번 편 후 조작합니다.
+- 버튼 위에서 별도로 기다릴 필요는 없습니다. 집기 시작 순간의 대상을 유지합니다.
+- 커서의 작은 떨림은 완화하고, 큰 이동은 빠르게 따라갑니다.
+- 버튼·스템·필터·카트리지의 손 인식 영역만 확대합니다. 겹치는 확장 영역은 오선택을 막습니다.
+- 필터는 손끝 대신 손바닥의 상하 이동으로 조절합니다.
+- 카트리지를 놓을 때도 화면 커서와 동일한 보정 좌표를 사용합니다.
+- 음원, 오디오 처리, 턴테이블 내부 동작, 양손 구분, 화면 디자인은 기존 파일을 유지합니다.
+
+검증
+- 수정 전 기준 코드와 배포 커밋의 일치, 원곡 선택·POWER·바늘·재생 시간 진행을 확인했습니다.
+- node --experimental-vm-modules --test tests/*.test.cjs
+  자동 재연결 6개 + 손 조작 13개, 총 19개 검증입니다.
+- 현재 PC에서 양손 커서 표시, 사용자 Pinch 클릭, 스템 볼륨 변경을 확인했습니다.
+- 개선 후 원곡 4개 스템 ON, POWER·카트리지 조작 후 재생 시간 진행,
+  LPF/HPF 입력값 변경도 Chrome에서 확인했습니다.
+- 실제 75인치 TV, 조명, 관람 거리와 관람객별 인식률은 현장 확인이 필요합니다.
+- 기준 거리·시간은 arrangement/hand-cursor.js 상단, 커서 보정은 smoothPosition에서 조정합니다.
+
+보존 기록
+- 상위 preservation/2026-11-13-hand-tracking 폴더에 저장소 전체 이력 bundle,
+  미커밋 파일 ZIP, 변경 패치, 원본 파일 해시, Pages 배포 설정 확인 기록을 보관했습니다.
+
+향후 별도 공개 URL
+- 안전한 방법은 새 GitHub 저장소(예: whats-missing-hand-lab)를 만들고,
+  이 개발 버전만 그 저장소의 Pages에 배포하는 것입니다.
+- 새 저장소의 URL 예시: https://beehyung0123-source.github.io/whats-missing-hand-lab/arrangement/
+  이 주소는 제안이며 아직 생성하거나 배포하지 않았습니다.
+- 현재 저장소의 Pages 배포 브랜치를 바꾸거나 gh-pages에 병합하지 않습니다.
+- 참고: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
