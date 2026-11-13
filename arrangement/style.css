@@ -318,6 +318,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
   gap: clamp(0.55rem, 1.6vh, 0.9rem);
   min-width: 0;
   padding: 0.65rem 0.3rem;
+  padding-block-end: clamp(1.25rem, 5vh, 3.5rem);
   border: 1px solid #929799;
   border-radius: 0.55rem;
   background:
@@ -713,7 +714,7 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 }
 #dual-hand-hint[hidden] { visibility: hidden; }
 
-#waiting-guide-slot, #deck-guide-slot, #mix-guide-slot, #filter-guide-slot,
+#waiting-guide-slot, #deck-guide-slot, #mix-guide-slot,
 .visitor-guide, .visitor-guide * {
   pointer-events: none;
 }
@@ -747,12 +748,6 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 .mixer[data-guide-step] .quick-mix-hint,
 #mixer-hint[data-guide-default],
 .usage:has(#mix-guide-slot .visitor-guide:not([hidden])) > :not(#mix-guide-slot) { visibility: hidden; }
-.master-filter { position: relative; }
-#filter-guide-slot { position: absolute; top: 0.6rem; inset-inline: -0.45rem; z-index: 1; }
-#filter-guide-slot .visitor-guide { padding: 0.35rem; }
-#filter-guide-slot .guide-title { font-size: clamp(0.66rem, 0.78vw, 0.78rem); }
-#filter-guide-slot .guide-detail { font-size: clamp(0.65rem, 0.76vw, 0.74rem); }
-.mixer[data-guide-step="filter"] .filter-knob { box-shadow: 0 0 0 2px #767f84; }
 
 @keyframes guide-enter {
   from { opacity: 0; }
@@ -761,7 +756,6 @@ body:has(.hand-cursor:not([hidden])) .tracking-active { display: block; }
 @media (max-width: 56rem) {
   .usage { min-width: 0; }
   .master-filter { min-height: 26rem; }
-  #filter-guide-slot { inset-inline: 0.45rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .visitor-guide { animation: none; }

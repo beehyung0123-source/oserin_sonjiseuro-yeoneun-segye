@@ -4,12 +4,11 @@
   const deck = mixer.querySelector('.deck-scene');
   const cursors = [...document.querySelectorAll('.hand-cursor')];
   const stemControls = [...mixer.querySelectorAll('.toggle, .volume')];
-  const filterControls = [...mixer.querySelectorAll('.filter-control')];
   const dualHint = document.querySelector('#dual-hand-hint');
   const mixerHint = document.querySelector('#mixer-hint');
   const defaultMixerHint = mixerHint.textContent;
 
-  const slots = Object.fromEntries(['waiting', 'deck', 'mix', 'filter'].map(key =>
+  const slots = Object.fromEntries(['waiting', 'deck', 'mix'].map(key =>
     [key, document.getElementById(key + '-guide-slot')]));
   const guide = document.querySelector('#visitor-guide-template').content.firstElementChild.cloneNode(true);
   const title = guide.querySelector('.guide-title');
@@ -23,7 +22,6 @@
     drop: ['OPEN YOUR FINGERS TO PLAY', '지금 손을 펴서 바늘을 내려놓으세요.'],
     playing: ['NOW PLAYING', '바늘이 LP 홈에 놓였습니다.'],
     mix: ['PINCH & MOVE UP OR DOWN TO MIX', '짧게 집었다 놓으면 ON/OFF · 집은 채 위아래로 움직이면 볼륨 조절'],
-    filter: ['SHAPE THE SOUND WITH FILTERS', '선택 사항 · LPF나 HPF를 집고 위아래로 움직여 보세요.'],
   };
 
   const repeatMs = 5000;
@@ -49,8 +47,7 @@
 
     const elapsed = now - stageSince;
     const held = stage === 'carry' || stage === 'drop' || stage === 'playing';
-    const visible = Boolean(stage && (held || elapsed % repeatMs < visibleMs)
-      && (stage !== 'filter' || elapsed < repeatMs * 2));
+    const visible = Boolean(stage && (held || elapsed % repeatMs < visibleMs));
     guide.hidden = !visible;
     const guidedTarget = visible && slot !== 'waiting' ? stage : '';
     if (mixer.dataset.guideStep !== guidedTarget) mixer.dataset.guideStep = guidedTarget;
@@ -58,10 +55,6 @@
 
   function readStems() {
     return stemControls.map(control => control.getAttribute('aria-pressed') ?? control.value).join(',');
-  }
-
-  function readFilters() {
-    return filterControls.map(control => control.value).join(',');
   }
 
   function tick() {
@@ -79,7 +72,7 @@
     }
 
     session ??= { handsSeen: false, powered: false, played: false, mixed: false,
-      filtered: false, playing: false, playingUntil: 0, dualUntil: 0 };
+      playing: false, playingUntil: 0, dualUntil: 0 };
     if (hands) session.handsSeen = true;
     if (hands === 2 && !session.dualUntil) session.dualUntil = now + 2800;
     dualHint.hidden = hands !== 2 || now >= session.dualUntil;
@@ -88,7 +81,6 @@
     const powered = deck.dataset.state !== 'power-off';
     const playing = mixer.classList.contains('is-playing');
     const stems = readStems();
-    const filters = readFilters();
     if (powered) session.powered = true;
     if (playing && !session.playing) {
       session.played = true;
@@ -96,10 +88,8 @@
     } else if (playing && session.playing) {
       if (stems !== session.stems) session.mixed = true;
     }
-    if (powered && session.filters !== undefined && filters !== session.filters) session.filtered = true;
     session.playing = playing;
     session.stems = stems;
-    session.filters = filters;
 
     if (!session.powered) return show(session.handsSeen ? 'power' : 'raise', 'deck', now);
     if (!session.played && deck.dataset.state === 'needle-up') {
@@ -112,7 +102,6 @@
       if (mixerHint.textContent !== defaultMixerHint) return show(null, null, now);
       return show('mix', 'mix', now);
     }
-    if (playing && !session.filtered) return show('filter', 'filter', now);
     show(null, null, now);
   }
 
