@@ -43,6 +43,9 @@ video.playsInline = true;
 
 const clamp = value => Math.min(1, Math.max(0, value));
 let session;
+const reconnectDelayMs = 3000;
+let reconnectTimer;
+let pageActive = true;
 const owners = new Map();
 
 function selectCard(hand, card) {
@@ -410,12 +413,25 @@ function stopTracking(active) {
   updateControls();
   cancelAnimationFrame(active.frame);
   active.stream?.getTracks().forEach(track => track.stop());
+  video.pause();
   video.srcObject = null;
   active.landmarker?.close();
 }
 
+function reconnectTracking(active) {
+  if (session !== active) return;
+  stopTracking(active);
+  if (!pageActive || reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = undefined;
+    startTracking();
+  }, reconnectDelayMs);
+}
+
 async function startTracking() {
-  if (session || !navigator.mediaDevices?.getUserMedia) return;
+  if (!pageActive || session || !navigator.mediaDevices?.getUserMedia) return;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
   const active = {};
   session = active;
 
@@ -433,7 +449,7 @@ async function startTracking() {
       return;
     }
     active.stream = stream;
-    stream.getVideoTracks()[0].addEventListener('ended', () => stopTracking(active), { once: true });
+    stream.getVideoTracks()[0].addEventListener('ended', () => reconnectTracking(active), { once: true });
 
     const { FilesetResolver, HandLandmarker } = await import(`${visionPackage}/vision_bundle.mjs`);
     const files = await FilesetResolver.forVisionTasks(`${visionPackage}/wasm`);
@@ -456,6 +472,7 @@ async function startTracking() {
     let wasMixing = !mixer.hidden;
 
     function trackFrame(timestamp) {
+      if (session !== active) return;
       try {
         if (wasMixing && mixer.hidden) hands.forEach(resetHand);
         for (const hand of hands) {
@@ -471,7 +488,7 @@ async function startTracking() {
         wasMixing = !mixer.hidden;
         active.frame = requestAnimationFrame(trackFrame);
       } catch (error) {
-        stopTracking(active);
+        reconnectTracking(active);
         console.warn('손 추적을 계속할 수 없습니다.', error);
       }
     }
@@ -479,15 +496,27 @@ async function startTracking() {
     active.frame = requestAnimationFrame(trackFrame);
   } catch (error) {
     if (session !== active) return;
-    stopTracking(active);
+    // A denied/dismissed permission needs the visitor's permission change,
+    // not repeated prompts. Device and loading failures retry automatically.
+    if (error.name === 'NotAllowedError' || error.name === 'SecurityError') stopTracking(active);
+    else reconnectTracking(active);
     console.warn('손 추적을 시작할 수 없습니다.', error);
   }
 }
 
 window.addEventListener('pagehide', () => {
+  pageActive = false;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
   if (session) stopTracking(session);
 });
 window.addEventListener('pageshow', event => {
+  pageActive = true;
   if (event.persisted) startTracking();
 });
+navigator.permissions?.query({ name: 'camera' }).then(permission => {
+  permission.addEventListener('change', () => {
+    if (permission.state === 'granted') startTracking();
+  });
+}).catch(() => {});
 startTracking();
