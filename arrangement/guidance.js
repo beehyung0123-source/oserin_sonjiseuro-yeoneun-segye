@@ -65,7 +65,7 @@
       session = null;
       dualHint.hidden = true;
       if (waiting.hidden) return show(null, null, now);
-      const ready = canStartExperience();
+      const ready = canStartExperience() && document.body.dataset.camera === 'ready';
       waiting.toggleAttribute('data-visitor-ready', ready);
       if (!ready) return show(null, null, now);
       return show(hands ? 'start' : 'raise', 'waiting', now);

@@ -26,6 +26,10 @@
           <p id="waiting-status" role="status">시작하기를 누르거나 손으로 집어 주세요.</p>
 
           <p id="hand-ready" class="visually-hidden" hidden>손이 인식되었습니다.</p>
+          <div id="camera-feedback" hidden>
+            <p id="camera-status" role="status"></p>
+            <div class="transport"><button id="camera-retry" type="button" hidden>카메라 다시 연결</button></div>
+          </div>
           <div id="waiting-guide-slot"></div>
           <div class="transport waiting-actions">
             <button id="enter" type="button">시작하기</button>

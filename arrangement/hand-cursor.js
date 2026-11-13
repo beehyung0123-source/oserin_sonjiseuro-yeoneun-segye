@@ -36,6 +36,9 @@ const pinchActions = new Map([
 ]);
 const forgivingButtons = new Set([enter, powerButton, finish, original, waitingOriginal]);
 const handReady = document.querySelector('#hand-ready');
+const cameraFeedback = document.querySelector('#camera-feedback');
+const cameraStatus = document.querySelector('#camera-status');
+const cameraRetry = document.querySelector('#camera-retry');
 // Keep the video off the DOM so the TV only shows the cursor.
 const video = document.createElement('video');
 video.muted = true;
@@ -414,10 +417,22 @@ function stopTracking(active) {
   active.landmarker?.close();
 }
 
+function setCameraStatus(state, message = '') {
+  document.body.dataset.camera = state;
+  cameraFeedback.hidden = state === 'ready';
+  cameraRetry.hidden = state !== 'error';
+  cameraStatus.textContent = message;
+}
+
 async function startTracking() {
-  if (session || !navigator.mediaDevices?.getUserMedia) return;
+  if (session) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setCameraStatus('error', '카메라를 사용할 수 없습니다. 전시시작 파일로 Chrome에서 열어 주세요.');
+    return;
+  }
   const active = {};
   session = active;
+  setCameraStatus('connecting', '카메라에 연결하는 중입니다. Chrome에 허용 안내가 뜨면 허용해 주세요.');
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -433,7 +448,16 @@ async function startTracking() {
       return;
     }
     active.stream = stream;
-    stream.getVideoTracks()[0].addEventListener('ended', () => stopTracking(active), { once: true });
+    stream.getVideoTracks()[0].addEventListener('ended', () => {
+      if (session !== active) return;
+      stopTracking(active);
+      setCameraStatus('error', '카메라 연결이 끊어졌습니다. 다시 연결해 주세요.');
+    }, { once: true });
+
+    video.srcObject = stream;
+    await video.play();
+    if (session !== active) return;
+    setCameraStatus('loading', '카메라가 연결됐습니다. 손 인식 파일을 불러오는 중입니다.');
 
     const { FilesetResolver, HandLandmarker } = await import(`${visionPackage}/vision_bundle.mjs`);
     const files = await FilesetResolver.forVisionTasks(`${visionPackage}/wasm`);
@@ -448,9 +472,6 @@ async function startTracking() {
       return;
     }
     active.landmarker = landmarker;
-    video.srcObject = stream;
-    await video.play();
-    if (session !== active) return;
 
     let lastVideoTime = -1;
     let wasMixing = !mixer.hidden;
@@ -467,11 +488,13 @@ async function startTracking() {
           // Stable left-first ordering breaks ties when both pinch in one frame.
           hands.forEach((hand, index) => updateHand(hand, matches[index], timestamp));
           updateControls();
+          if (document.body.dataset.camera !== 'ready') setCameraStatus('ready');
         }
         wasMixing = !mixer.hidden;
         active.frame = requestAnimationFrame(trackFrame);
       } catch (error) {
         stopTracking(active);
+        setCameraStatus('error', '손 인식이 중단됐습니다. 카메라를 다시 연결해 주세요.');
         console.warn('손 추적을 계속할 수 없습니다.', error);
       }
     }
@@ -479,7 +502,15 @@ async function startTracking() {
     active.frame = requestAnimationFrame(trackFrame);
   } catch (error) {
     if (session !== active) return;
+    const connected = video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
     stopTracking(active);
+    if (connected) {
+      setCameraStatus('error', '카메라는 연결됐지만 손 인식을 시작하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 연결해 주세요.');
+    } else if (error.name === 'NotAllowedError' && !active.stream) {
+      setCameraStatus('error', 'Chrome 주소 표시줄의 사이트 설정에서 카메라를 허용한 뒤 다시 연결해 주세요.');
+    } else {
+      setCameraStatus('error', '카메라 영상을 열지 못했습니다. 다른 프로그램에서 카메라를 사용 중인지 확인해 주세요.');
+    }
     console.warn('손 추적을 시작할 수 없습니다.', error);
   }
 }
@@ -490,4 +521,5 @@ window.addEventListener('pagehide', () => {
 window.addEventListener('pageshow', event => {
   if (event.persisted) startTracking();
 });
+cameraRetry.addEventListener('click', startTracking);
 startTracking();
